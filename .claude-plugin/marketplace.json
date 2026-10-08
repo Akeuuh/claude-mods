@@ -7,6 +7,10 @@
     {
       "name": "jev-guard",
       "source": "./jev/guard"
+    },
+    {
+      "name": "jev-compact",
+      "source": "./jev/compact"
     }
   ]
 }
