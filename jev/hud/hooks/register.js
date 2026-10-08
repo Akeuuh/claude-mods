@@ -11,6 +11,7 @@ var EVENT_PREFIX = "jev-event ";
 var chips = atom({ plugin: "jev-hud", key: "chips" }, []);
 var stats = atom({ plugin: "jev-hud", key: "stats" }, { calls: 0, inFlight: 0, ms: 0, usd: 0, blocks: 0 });
 var frame = atom({ plugin: "jev-hud", key: "frame" }, 0);
+var isPaused = atom({ plugin: "jev-hud", key: "isPaused" }, false);
 var SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
 var MAX_CHIPS = 12;
 var MAX_TEXT = 48;
@@ -80,6 +81,10 @@ async function record($, event) {
     ticker = undefined;
   }
 }
+async function togglePause($) {
+  const paused = await update($, isPaused, (p) => !p);
+  await $.env.set("JEV_PAUSED", paused ? "1" : undefined);
+}
 function register(on) {
   on("ui.log", async ($, e, next) => {
     if (e.text.startsWith("jev · "))
@@ -92,22 +97,35 @@ function register(on) {
     return next(e);
   });
   on("ui.render", { component: "AbovePrompt" }, async ($, e, next) => {
-    const list = await read($, chips);
-    if (e.props.hasSurvey || list.length === 0)
+    if (e.props.hasSurvey)
       return next(e);
+    const list = await read($, chips);
+    const paused = await read($, isPaused);
     const s = await read($, stats);
     const spin = SPINNER[await read($, frame) % SPINNER.length];
-    const shown = fit(list, e.props.bodyColumns ?? 80);
-    const { Box, Text } = $.ui.resolve(e);
+    const columns = e.props.bodyColumns ?? 80;
+    const shown = fit(list, columns);
+    const { Box, Button, Text } = $.ui.resolve(e);
     const avg = s.calls ? Math.round(s.ms / s.calls) : 0;
     return /* @__PURE__ */ h(Box, {
       flexDirection: "column"
-    }, await next(e), /* @__PURE__ */ h(Box, null, /* @__PURE__ */ h(Text, {
-      color: "claude",
+    }, await next(e), /* @__PURE__ */ h(Box, {
+      justifyContent: "space-between",
+      width: columns
+    }, /* @__PURE__ */ h(Box, null, /* @__PURE__ */ h(Text, {
+      color: paused ? "warning" : "claude",
       bold: true
-    }, s.inFlight ? spin : "◆", " jev"), /* @__PURE__ */ h(Text, {
+    }, paused ? "⏸" : s.inFlight ? spin : "◆", " jev"), /* @__PURE__ */ h(Text, {
       dimColor: true
-    }, "  ", s.calls, " calls · ", avg, " ms avg · $", s.usd.toFixed(5), s.blocks ? ` · ${s.blocks} blocked` : "")), /* @__PURE__ */ h(Box, null, shown.map((c, i) => /* @__PURE__ */ h(Text, {
+    }, "  ", s.calls, " calls · ", avg, " ms avg · $", s.usd.toFixed(5), s.blocks ? ` · ${s.blocks} blocked` : "")), /* @__PURE__ */ h(Button, {
+      key: "pause",
+      hotkey: "p",
+      dimColor: !paused,
+      label: paused ? "Resume" : "Pause",
+      onPress: () => togglePause($)
+    })), paused && /* @__PURE__ */ h(Text, {
+      color: "warning"
+    }, "paused · no gate, screen or compaction advice until you resume"), /* @__PURE__ */ h(Box, null, shown.map((c, i) => /* @__PURE__ */ h(Text, {
       key: `${i}`,
       color: COLOR[c.tone],
       bold: i === shown.length - 1,

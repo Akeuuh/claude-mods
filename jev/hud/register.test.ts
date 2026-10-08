@@ -63,10 +63,27 @@ test("the readable jev line leaves the transcript for the debug log", { plugins:
   expect(to).toBe("debug");
 });
 
-test("nothing is drawn before Jev has been called", async ($, on) => {
+test("the pause button switches JEV_PAUSED for the process, and back", async ($, on) => {
   engineBelow(on);
+  const sets: { name: string; value?: string }[] = [];
+  on("env.set", ($, e) => {
+    sets.push({ name: e.name, value: e.value });
+    return { value: undefined };
+  });
 
-  const ui = await $.ui.mount({ plugin: "jev-hud", surface: "terminal", ...BAND });
+  for (const surface of ["terminal", "desktop"] as const) {
+    const ui = await $.ui.mount({ plugin: "jev-hud", surface, ...BAND });
+    await ui.press({ key: "pause" });
+    expect(await ui.find({ type: "Text", text: /paused · no gate/ })).toBeDefined();
+    await ui.press({ key: "pause" });
+    expect(await ui.find({ type: "Text", text: /paused · no gate/ })).toBeUndefined();
+    await ui.unmount();
+  }
 
-  expect(await ui.find({ type: "Text", text: /jev/ })).toBeUndefined();
+  expect(sets).toEqual([
+    { name: "JEV_PAUSED", value: "1" },
+    { name: "JEV_PAUSED", value: undefined },
+    { name: "JEV_PAUSED", value: "1" },
+    { name: "JEV_PAUSED", value: undefined },
+  ]);
 });

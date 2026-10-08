@@ -2,6 +2,7 @@
  * A band above the prompt that shows Jev at work. The other jev mods log one JSON event per call
  * and per verdict on the debug log (lib/host/jev.ts); this mod reads them off `ui.log`, keeps the
  * last interventions in its state, and moves their readable transcript lines to the debug log.
+ * Its pause button sets JEV_PAUSED for the process, which every jev mod checks before calling Jev.
  */
 import { atom, read, update } from "claude-code";
 import type { EngineInterface, On, Timer } from "claude-code";
@@ -11,6 +12,7 @@ import type { JevHudChip, JevHudStats, JevHudTone } from "../types";
 const chips = atom({ plugin: "jev-hud", key: "chips" } as const, [] as JevHudChip[]);
 const stats = atom({ plugin: "jev-hud", key: "stats" } as const, { calls: 0, inFlight: 0, ms: 0, usd: 0, blocks: 0 } as JevHudStats);
 const frame = atom({ plugin: "jev-hud", key: "frame" } as const, 0);
+const isPaused = atom({ plugin: "jev-hud", key: "isPaused" } as const, false);
 
 const SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
 const MAX_CHIPS = 12;
@@ -86,6 +88,11 @@ async function record($: EngineInterface, event: JevEvent) {
   }
 }
 
+async function togglePause($: EngineInterface) {
+  const paused = await update($, isPaused, (p) => !p);
+  await $.env.set("JEV_PAUSED", paused ? "1" : undefined);
+}
+
 export function register(on: On) {
   on("ui.log", async ($, e, next) => {
     if (e.text.startsWith("jev · ")) return next({ ...e, to: "debug" });
@@ -97,22 +104,28 @@ export function register(on: On) {
   });
 
   on("ui.render", { component: "AbovePrompt" }, async ($, e, next) => {
+    if (e.props.hasSurvey) return next(e);
     const list = await read($, chips);
-    if (e.props.hasSurvey || list.length === 0) return next(e);
+    const paused = await read($, isPaused);
     const s = await read($, stats);
     const spin = SPINNER[(await read($, frame)) % SPINNER.length];
-    const shown = fit(list, e.props.bodyColumns ?? 80);
-    const { Box, Text } = $.ui.resolve(e);
+    const columns = e.props.bodyColumns ?? 80;
+    const shown = fit(list, columns);
+    const { Box, Button, Text } = $.ui.resolve(e);
     const avg = s.calls ? Math.round(s.ms / s.calls) : 0;
     return (
       <Box flexDirection="column">
         {await next(e)}
-        <Box>
-          <Text color="claude" bold>{s.inFlight ? spin : "◆"} jev</Text>
-          <Text dimColor>
-            {"  "}{s.calls} calls · {avg} ms avg · ${s.usd.toFixed(5)}{s.blocks ? ` · ${s.blocks} blocked` : ""}
-          </Text>
+        <Box justifyContent="space-between" width={columns}>
+          <Box>
+            <Text color={paused ? "warning" : "claude"} bold>{paused ? "⏸" : s.inFlight ? spin : "◆"} jev</Text>
+            <Text dimColor>
+              {"  "}{s.calls} calls · {avg} ms avg · ${s.usd.toFixed(5)}{s.blocks ? ` · ${s.blocks} blocked` : ""}
+            </Text>
+          </Box>
+          <Button key="pause" hotkey="p" dimColor={!paused} label={paused ? "Resume" : "Pause"} onPress={() => togglePause($)} />
         </Box>
+        {paused && <Text color="warning">paused · no gate, screen or compaction advice until you resume</Text>}
         <Box>
           {shown.map((c, i) => (
             <Text key={`${i}`} color={COLOR[c.tone]} bold={i === shown.length - 1} wrap="truncate">

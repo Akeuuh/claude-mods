@@ -6,6 +6,6 @@ export type JevHudStats = { calls: number; inFlight: number; ms: number; usd: nu
 
 declare module "claude-code" {
   interface PluginState {
-    "jev-hud": { chips: JevHudChip[]; stats: JevHudStats; frame: number };
+    "jev-hud": { chips: JevHudChip[]; stats: JevHudStats; frame: number; isPaused: boolean };
   }
 }
