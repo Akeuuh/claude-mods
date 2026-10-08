@@ -11,6 +11,10 @@
     {
       "name": "jev-compact",
       "source": "./jev/compact"
+    },
+    {
+      "name": "ask-jev-file",
+      "source": "./jev/ask-file"
     }
   ]
 }
