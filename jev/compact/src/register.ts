@@ -14,7 +14,7 @@ import {
   type CompactAnswers, type CompactDecision, type CompactState, type Lines, type Usage,
 } from "../../lib/levels/level07/index.ts";
 import type { ChoiceAnswer } from "../../lib/core/types.ts";
-import { decide, levelConfig } from "../../lib/host/jev.ts";
+import { decide, levelConfig, verdict } from "../../lib/host/jev.ts";
 import { errorText, ok } from "../../lib/host/tool.ts";
 
 /** Claude Code's own system prompt and tools weigh tens of thousands of tokens, so the lab's lines sit higher here. */
@@ -109,6 +109,7 @@ export function register(on: On) {
     }
     try {
       current = await evaluate($, e.answer, "turn.complete");
+      if (current.answers) verdict($, "turn.complete", `compact ${current.decision.tier} · ${current.decision.reason}`, current.decision.tier === "silent" ? "ok" : "warn");
       $.ui.status(current.decision.tier === "silent" ? undefined : `jev · compact ${current.decision.tier}`);
     } catch (err) {
       $.ui.log(`jev-compact: ${errorText(err)}`);

@@ -4,6 +4,7 @@
  */
 import type { EngineInterface } from "claude-code";
 import { validateRequest, type Answer, type Questions, type State } from "../core/types.ts";
+import { JEV_INPUT_USD_PER_M } from "../levels/level10/spend.ts";
 import { DEFAULT_MODELS, ENDPOINTS, KEY_ENV, MAX_ATTEMPTS, RETRY_STATUSES, validateResponse, type JevProvider } from "../core/wire.ts";
 
 export interface Decision {
@@ -52,15 +53,46 @@ async function systemOne($: EngineInterface, state: State, questions: Questions)
 const brief = (a: Answer) =>
   a.type === "noul" ? a.noul.toFixed(2) : a.type === "choice" ? `${a.choice} ${a.confidence.toFixed(2)}` : `${a.score.toFixed(2)}`;
 
+/**
+ * The side channel, one JSON line per event on the debug log under EVENT_PREFIX, for a mod that
+ * shows Jev at work (jev-hud). The readable `jev · ...` transcript line stays for everyone else.
+ */
+export const EVENT_PREFIX = "jev-event ";
+
+export type Tone = "block" | "warn" | "ok";
+
+export type JevEvent =
+  | { kind: "start"; source: string }
+  | { kind: "done"; source: string; ms: number; usd: number; brief: string; isError: boolean }
+  | { kind: "verdict"; source: string; text: string; tone: Tone };
+
+export function emit($: EngineInterface, event: JevEvent): void {
+  $.ui.log(EVENT_PREFIX + JSON.stringify(event), { to: "debug" });
+}
+
+/** What a hook decided with Jev's answers, shown beside the call it made. */
+export function verdict($: EngineInterface, source: string, text: string, tone: Tone): void {
+  emit($, { kind: "verdict", source, text, tone });
+}
+
 /** One Jev call from a hook or a tool. `source` names who asked, so the log line says it. */
 export async function decide($: EngineInterface, source: string, state: State, questions: Questions): Promise<Decision> {
   validateRequest({ state, questions });
   const started = await $.clock.now();
-  const result = await systemOne($, state, questions);
-  const ms = (await $.clock.now()) - started;
-  const answers = Object.entries(result.answers).map(([id, a]) => `${id} ${brief(a)}`).join(", ");
-  $.ui.log(`jev · ${source} · ${answers} · ${ms} ms`);
-  return { answers: result.answers, usage: result.usage as Decision["usage"], model: result.model, ms };
+  emit($, { kind: "start", source });
+  try {
+    const result = await systemOne($, state, questions);
+    const ms = (await $.clock.now()) - started;
+    const usage = result.usage as Decision["usage"];
+    const answers = Object.entries(result.answers).map(([id, a]) => `${id} ${brief(a)}`).join(", ");
+    $.ui.log(`jev · ${source} · ${answers} · ${ms} ms`);
+    emit($, { kind: "done", source, ms, usd: usage.cost ?? (usage.input_tokens * JEV_INPUT_USD_PER_M) / 1e6, brief: answers, isError: false });
+    return { answers: result.answers, usage, model: result.model, ms };
+  } catch (err) {
+    const ms = (await $.clock.now()) - started;
+    emit($, { kind: "done", source, ms, usd: 0, brief: err instanceof Error ? err.message : String(err), isError: true });
+    throw err;
+  }
 }
 
 /** The level config the lab passes to pi, read the same way. */

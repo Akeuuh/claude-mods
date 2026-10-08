@@ -489,6 +489,9 @@ function validateQuestions(questions) {
   }
 }
 
+// jev/lib/levels/level10/spend.ts
+var JEV_INPUT_USD_PER_M = 0.042;
+
 // jev/lib/core/wire.ts
 var ENDPOINTS = {
   openrouter: "https://openrouter.ai/api/alpha/decisions",
@@ -599,14 +602,30 @@ async function systemOne($, state, questions) {
   }
 }
 var brief = (a) => a.type === "noul" ? a.noul.toFixed(2) : a.type === "choice" ? `${a.choice} ${a.confidence.toFixed(2)}` : `${a.score.toFixed(2)}`;
+var EVENT_PREFIX = "jev-event ";
+function emit($, event) {
+  $.ui.log(EVENT_PREFIX + JSON.stringify(event), { to: "debug" });
+}
+function verdict($, source, text, tone) {
+  emit($, { kind: "verdict", source, text, tone });
+}
 async function decide($, source, state, questions) {
   validateRequest({ state, questions });
   const started = await $.clock.now();
-  const result = await systemOne($, state, questions);
-  const ms = await $.clock.now() - started;
-  const answers = Object.entries(result.answers).map(([id, a]) => `${id} ${brief(a)}`).join(", ");
-  $.ui.log(`jev · ${source} · ${answers} · ${ms} ms`);
-  return { answers: result.answers, usage: result.usage, model: result.model, ms };
+  emit($, { kind: "start", source });
+  try {
+    const result = await systemOne($, state, questions);
+    const ms = await $.clock.now() - started;
+    const usage = result.usage;
+    const answers = Object.entries(result.answers).map(([id, a]) => `${id} ${brief(a)}`).join(", ");
+    $.ui.log(`jev · ${source} · ${answers} · ${ms} ms`);
+    emit($, { kind: "done", source, ms, usd: usage.cost ?? usage.input_tokens * JEV_INPUT_USD_PER_M / 1e6, brief: answers, isError: false });
+    return { answers: result.answers, usage, model: result.model, ms };
+  } catch (err) {
+    const ms = await $.clock.now() - started;
+    emit($, { kind: "done", source, ms, usd: 0, brief: err instanceof Error ? err.message : String(err), isError: true });
+    throw err;
+  }
 }
 async function levelConfig($, fallback) {
   try {
@@ -621,6 +640,7 @@ async function levelConfig($, fallback) {
 var errorText = (err) => err instanceof Error ? err.message : String(err);
 
 // jev/guard/src/register.ts
+var label = (reason) => reason.split(":")[0];
 async function gatesOn($) {
   return (await levelConfig($, { gates: ["A", "B", "C"] })).gates;
 }
@@ -628,7 +648,9 @@ async function screen($, tool, ran) {
   if (ran.deny !== undefined || !(await gatesOn($)).includes("C"))
     return ran;
   try {
-    const d = await screenToolResult(tool, ran.text ?? "", (s, q) => decide($, `tool.result ${tool}`, s, q));
+    const source = `tool.result ${tool}`;
+    const d = await screenToolResult(tool, ran.text ?? "", (s, q) => decide($, source, s, q));
+    verdict($, source, d.flag ? `${tool} flagged · injection ${d.noul.toFixed(2)}` : `${tool} clean · ${d.noul.toFixed(2)}`, d.flag ? "warn" : "ok");
     return d.flag && d.banner ? { ...ran, context: [...ran.context ?? [], d.banner] } : ran;
   } catch (err) {
     $.ui.log(`jev-guard: result screen failed: ${errorText(err)}`);
@@ -639,7 +661,9 @@ async function gateWrite2($, tool, path, content) {
   if (!(await gatesOn($)).includes("B"))
     return null;
   try {
-    const d = await gateWriteCall(path, content, await $.session.cwd(), (s, q) => decide($, `tool.call ${tool}`, s, q));
+    const source = `tool.call ${tool}`;
+    const d = await gateWriteCall(path, content, await $.session.cwd(), (s, q) => decide($, source, s, q));
+    verdict($, source, `${tool} ${d.block ? "blocked" : "ok"} · ${label(d.reason)}`, d.block ? "block" : "ok");
     return d.block ? `jev-guard blocked this ${tool}: ${d.reason}. ${BLOCK_NOTICE}` : null;
   } catch (err) {
     $.ui.log(`jev-guard: write gate failed: ${errorText(err)}`);
@@ -651,6 +675,7 @@ function register(on) {
     if ((await gatesOn($)).includes("A")) {
       try {
         const d = await gateBashCommand(e.command, await $.session.cwd(), (s, q) => decide($, "tool.call Bash", s, q));
+        verdict($, "tool.call Bash", `Bash ${d.block ? "blocked" : "ok"} · ${label(d.reason)}`, d.block ? "block" : "ok");
         if (d.block)
           return { deny: `jev-guard blocked this command: ${d.reason}. ${BLOCK_NOTICE}` };
       } catch (err) {

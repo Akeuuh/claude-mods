@@ -176,6 +176,9 @@ function validateQuestions(questions) {
   }
 }
 
+// jev/lib/levels/level10/spend.ts
+var JEV_INPUT_USD_PER_M = 0.042;
+
 // jev/lib/core/wire.ts
 var ENDPOINTS = {
   openrouter: "https://openrouter.ai/api/alpha/decisions",
@@ -286,14 +289,30 @@ async function systemOne($, state, questions) {
   }
 }
 var brief = (a) => a.type === "noul" ? a.noul.toFixed(2) : a.type === "choice" ? `${a.choice} ${a.confidence.toFixed(2)}` : `${a.score.toFixed(2)}`;
+var EVENT_PREFIX = "jev-event ";
+function emit($, event) {
+  $.ui.log(EVENT_PREFIX + JSON.stringify(event), { to: "debug" });
+}
+function verdict($, source, text, tone) {
+  emit($, { kind: "verdict", source, text, tone });
+}
 async function decide($, source, state, questions) {
   validateRequest({ state, questions });
   const started = await $.clock.now();
-  const result = await systemOne($, state, questions);
-  const ms = await $.clock.now() - started;
-  const answers = Object.entries(result.answers).map(([id, a]) => `${id} ${brief(a)}`).join(", ");
-  $.ui.log(`jev · ${source} · ${answers} · ${ms} ms`);
-  return { answers: result.answers, usage: result.usage, model: result.model, ms };
+  emit($, { kind: "start", source });
+  try {
+    const result = await systemOne($, state, questions);
+    const ms = await $.clock.now() - started;
+    const usage = result.usage;
+    const answers = Object.entries(result.answers).map(([id, a]) => `${id} ${brief(a)}`).join(", ");
+    $.ui.log(`jev · ${source} · ${answers} · ${ms} ms`);
+    emit($, { kind: "done", source, ms, usd: usage.cost ?? usage.input_tokens * JEV_INPUT_USD_PER_M / 1e6, brief: answers, isError: false });
+    return { answers: result.answers, usage, model: result.model, ms };
+  } catch (err) {
+    const ms = await $.clock.now() - started;
+    emit($, { kind: "done", source, ms, usd: 0, brief: err instanceof Error ? err.message : String(err), isError: true });
+    throw err;
+  }
 }
 async function levelConfig($, fallback) {
   try {
@@ -384,6 +403,8 @@ ${pendingNote}`;
     }
     try {
       current = await evaluate($, e.answer, "turn.complete");
+      if (current.answers)
+        verdict($, "turn.complete", `compact ${current.decision.tier} · ${current.decision.reason}`, current.decision.tier === "silent" ? "ok" : "warn");
       $.ui.status(current.decision.tier === "silent" ? undefined : `jev · compact ${current.decision.tier}`);
     } catch (err) {
       $.ui.log(`jev-compact: ${errorText(err)}`);
