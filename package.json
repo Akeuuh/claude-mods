@@ -1,0 +1,10 @@
+{
+  "name": "claude-mods",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun scripts/build.ts",
+    "test": "for d in */*/.claude-plugin; do claude plugin test \"$(dirname \"$d\")\" || exit 1; done",
+    "validate": "claude plugin validate . && for d in */*/.claude-plugin; do claude plugin validate \"$(dirname \"$d\")\" || exit 1; done"
+  }
+}
