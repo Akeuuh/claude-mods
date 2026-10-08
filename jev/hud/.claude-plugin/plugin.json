@@ -1,0 +1,1 @@
+{ "name": "jev-hud", "version": "0.1.0", "description": "A band above the prompt that shows Jev at work: a spinner while it thinks, each intervention in colour, calls, latency and spend", "types": "./types/index.d.ts" }

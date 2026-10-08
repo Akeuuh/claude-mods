@@ -23,6 +23,10 @@
     {
       "name": "ask-jev",
       "source": "./jev/ask"
+    },
+    {
+      "name": "jev-hud",
+      "source": "./jev/hud"
     }
   ]
 }
