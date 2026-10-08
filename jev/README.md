@@ -33,29 +33,46 @@ git -C ~/dotfiles check-ignore -v .config/zsh/secrets.zsh
 
 ### 2. CLI (`claude` dans un terminal)
 
-Charge le fichier depuis **`~/.zprofile`**, lu par les shells de login (un nouvel onglet Terminal sur macOS) :
+Charge le fichier depuis **`~/.zshrc`**, lu par tous les shells interactifs (Terminal, tmux, terminal de l'IDE) :
 
 ```bash
 [ -f ~/.config/zsh/secrets.zsh ] && source ~/.config/zsh/secrets.zsh
 ```
 
-Si tu le charges seulement depuis `~/.zshrc`, ça marche dans un shell interactif, mais pas pour tout ce qui démarre via un shell de login.
-
 Vérification, qui doit afficher `ok` :
 
 ```bash
-zsh -lc '[ -n "$OPENROUTER_API_KEY" ] && echo ok'
+zsh -ic '[ -n "$OPENROUTER_API_KEY" ] && echo ok'
 ```
 
 ### 3. App desktop (Claude, onglet Code)
 
-Lancée depuis le Dock, l'app ne lit pas tes fichiers de shell. Pour lui transmettre la clé, passe par launchd. Ajoute cette ligne à `~/.zprofile`, après le `source` des secrets :
+Lancée depuis le Dock, l'app ne lit pas tes fichiers de shell : elle prend l'environnement de launchd. `launchctl setenv` y pose la clé, mais la valeur se perd au redémarrage du Mac. Pour la reposer à chaque login, crée un LaunchAgent qui source le même fichier de secrets (la clé n'est donc pas écrite dans le plist), dans `~/Library/LaunchAgents/local.openrouter-env.plist` :
 
-```bash
-launchctl setenv OPENROUTER_API_KEY "$OPENROUTER_API_KEY"
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>local.openrouter-env</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-c</string>
+    <string>source ~/.config/zsh/secrets.zsh && launchctl setenv OPENROUTER_API_KEY "$OPENROUTER_API_KEY"</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+</dict>
+</plist>
 ```
 
-Ensuite, quitte l'app avec **Cmd+Q** et relance-la. La valeur se perd au redémarrage du Mac. Elle est reposée à l'ouverture du premier terminal, ce qui veut dire qu'une app lancée avant ce terminal n'aura pas la clé.
+Active-le une fois ; il tourne aussitôt, puis à chaque login :
+
+```bash
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.openrouter-env.plist
+```
+
+Une app déjà ouverte garde son ancien environnement : quitte-la avec **Cmd+Q** et relance-la. Si l'app démarre au login avant le LaunchAgent, elle n'aura pas la clé ; relance-la une fois.
 
 Autre option : lancer l'app depuis un terminal où la clé est chargée.
 
