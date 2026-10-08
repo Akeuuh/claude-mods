@@ -631,6 +631,11 @@ function hostFs($) {
 // jev/lib/levels/level10/spend.ts
 var JEV_INPUT_USD_PER_M = 0.042;
 
+// jev/lib/host/tool.ts
+var ok = (payload) => ({ result: JSON.stringify(payload, null, 2) });
+var fail = (message) => ({ deny: message });
+var errorText = (err) => err instanceof Error ? err.message : String(err);
+
 // jev/lib/core/wire.ts
 var ENDPOINTS = {
   openrouter: "https://openrouter.ai/api/alpha/decisions",
@@ -745,8 +750,16 @@ var EVENT_PREFIX = "jev-event ";
 function emit($, event) {
   $.ui.log(EVENT_PREFIX + JSON.stringify(event), { to: "debug" });
 }
+class JevPausedError extends Error {
+  constructor() {
+    super("Jev is paused; resume it from the jev HUD");
+    this.name = "JevPausedError";
+  }
+}
 async function decide($, source, state, questions) {
   validateRequest({ state, questions });
+  if (await $.env.get("JEV_PAUSED") === "1")
+    throw new JevPausedError;
   const started = await $.clock.now();
   emit($, { kind: "start", source });
   try {
@@ -763,11 +776,6 @@ async function decide($, source, state, questions) {
     throw err;
   }
 }
-
-// jev/lib/host/tool.ts
-var ok = (payload) => ({ result: JSON.stringify(payload, null, 2) });
-var fail = (message) => ({ deny: message });
-var errorText = (err) => err instanceof Error ? err.message : String(err);
 
 // jev/ask-files/src/register.ts
 var TOOLS = [

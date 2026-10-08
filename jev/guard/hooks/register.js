@@ -492,6 +492,9 @@ function validateQuestions(questions) {
 // jev/lib/levels/level10/spend.ts
 var JEV_INPUT_USD_PER_M = 0.042;
 
+// jev/lib/host/tool.ts
+var errorText = (err) => err instanceof Error ? err.message : String(err);
+
 // jev/lib/core/wire.ts
 var ENDPOINTS = {
   openrouter: "https://openrouter.ai/api/alpha/decisions",
@@ -609,8 +612,21 @@ function emit($, event) {
 function verdict($, source, text, tone) {
   emit($, { kind: "verdict", source, text, tone });
 }
+
+class JevPausedError extends Error {
+  constructor() {
+    super("Jev is paused; resume it from the jev HUD");
+    this.name = "JevPausedError";
+  }
+}
+function logFailure($, prefix, err) {
+  if (!(err instanceof JevPausedError))
+    $.ui.log(`${prefix}${errorText(err)}`);
+}
 async function decide($, source, state, questions) {
   validateRequest({ state, questions });
+  if (await $.env.get("JEV_PAUSED") === "1")
+    throw new JevPausedError;
   const started = await $.clock.now();
   emit($, { kind: "start", source });
   try {
@@ -636,9 +652,6 @@ async function levelConfig($, fallback) {
   }
 }
 
-// jev/lib/host/tool.ts
-var errorText = (err) => err instanceof Error ? err.message : String(err);
-
 // jev/guard/src/register.ts
 var label = (reason) => reason.split(":")[0];
 async function gatesOn($) {
@@ -653,7 +666,7 @@ async function screen($, tool, ran) {
     verdict($, source, d.flag ? `${tool} flagged · injection ${d.noul.toFixed(2)}` : `${tool} clean · ${d.noul.toFixed(2)}`, d.flag ? "warn" : "ok");
     return d.flag && d.banner ? { ...ran, context: [...ran.context ?? [], d.banner] } : ran;
   } catch (err) {
-    $.ui.log(`jev-guard: result screen failed: ${errorText(err)}`);
+    logFailure($, "jev-guard: result screen failed: ", err);
     return ran;
   }
 }
@@ -666,7 +679,7 @@ async function gateWrite2($, tool, path, content) {
     verdict($, source, `${tool} ${d.block ? "blocked" : "ok"} · ${label(d.reason)}`, d.block ? "block" : "ok");
     return d.block ? `jev-guard blocked this ${tool}: ${d.reason}. ${BLOCK_NOTICE}` : null;
   } catch (err) {
-    $.ui.log(`jev-guard: write gate failed: ${errorText(err)}`);
+    logFailure($, "jev-guard: write gate failed: ", err);
     return null;
   }
 }
@@ -679,7 +692,7 @@ function register(on) {
         if (d.block)
           return { deny: `jev-guard blocked this command: ${d.reason}. ${BLOCK_NOTICE}` };
       } catch (err) {
-        $.ui.log(`jev-guard: bash gate failed: ${errorText(err)}`);
+        logFailure($, "jev-guard: bash gate failed: ", err);
       }
     }
     return screen($, "Bash", await next(e));

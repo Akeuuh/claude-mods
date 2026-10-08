@@ -179,6 +179,10 @@ function validateQuestions(questions) {
 // jev/lib/levels/level10/spend.ts
 var JEV_INPUT_USD_PER_M = 0.042;
 
+// jev/lib/host/tool.ts
+var ok = (payload) => ({ result: JSON.stringify(payload, null, 2) });
+var errorText = (err) => err instanceof Error ? err.message : String(err);
+
 // jev/lib/core/wire.ts
 var ENDPOINTS = {
   openrouter: "https://openrouter.ai/api/alpha/decisions",
@@ -296,8 +300,21 @@ function emit($, event) {
 function verdict($, source, text, tone) {
   emit($, { kind: "verdict", source, text, tone });
 }
+
+class JevPausedError extends Error {
+  constructor() {
+    super("Jev is paused; resume it from the jev HUD");
+    this.name = "JevPausedError";
+  }
+}
+function logFailure($, prefix, err) {
+  if (!(err instanceof JevPausedError))
+    $.ui.log(`${prefix}${errorText(err)}`);
+}
 async function decide($, source, state, questions) {
   validateRequest({ state, questions });
+  if (await $.env.get("JEV_PAUSED") === "1")
+    throw new JevPausedError;
   const started = await $.clock.now();
   emit($, { kind: "start", source });
   try {
@@ -322,10 +339,6 @@ async function levelConfig($, fallback) {
     return fallback;
   }
 }
-
-// jev/lib/host/tool.ts
-var ok = (payload) => ({ result: JSON.stringify(payload, null, 2) });
-var errorText = (err) => err instanceof Error ? err.message : String(err);
 
 // jev/compact/src/register.ts
 var CLAUDE_CODE_LINES = { notice: 80000, recommend: 120000, request: 160000 };
@@ -407,7 +420,7 @@ ${pendingNote}`;
         verdict($, "turn.complete", `compact ${current.decision.tier} · ${current.decision.reason}`, current.decision.tier === "silent" ? "ok" : "warn");
       $.ui.status(current.decision.tier === "silent" ? undefined : `jev · compact ${current.decision.tier}`);
     } catch (err) {
-      $.ui.log(`jev-compact: ${errorText(err)}`);
+      logFailure($, "jev-compact: ", err);
     }
     return done;
   });
@@ -440,7 +453,7 @@ ${pendingNote}`;
       return next({ ...e, instructions: `${e.instructions ?? ""}
 ${cut.instructions}`.trim() });
     } catch (err) {
-      $.ui.log(`jev-compact: cut point failed: ${errorText(err)}`);
+      logFailure($, "jev-compact: cut point failed: ", err);
       return next(e);
     }
   });

@@ -5,6 +5,7 @@
 import type { EngineInterface } from "claude-code";
 import { validateRequest, type Answer, type Questions, type State } from "../core/types.ts";
 import { JEV_INPUT_USD_PER_M } from "../levels/level10/spend.ts";
+import { errorText } from "./tool.ts";
 import { DEFAULT_MODELS, ENDPOINTS, KEY_ENV, MAX_ATTEMPTS, RETRY_STATUSES, validateResponse, type JevProvider } from "../core/wire.ts";
 
 export interface Decision {
@@ -75,9 +76,23 @@ export function verdict($: EngineInterface, source: string, text: string, tone: 
   emit($, { kind: "verdict", source, text, tone });
 }
 
+/** Thrown instead of calling Jev while JEV_PAUSED=1, the process-wide switch jev-hud's pause button sets. */
+export class JevPausedError extends Error {
+  constructor() {
+    super("Jev is paused; resume it from the jev HUD");
+    this.name = "JevPausedError";
+  }
+}
+
+/** A hook's failure as a dim line, except while Jev is paused, when every call fails by design. */
+export function logFailure($: EngineInterface, prefix: string, err: unknown): void {
+  if (!(err instanceof JevPausedError)) $.ui.log(`${prefix}${errorText(err)}`);
+}
+
 /** One Jev call from a hook or a tool. `source` names who asked, so the log line says it. */
 export async function decide($: EngineInterface, source: string, state: State, questions: Questions): Promise<Decision> {
   validateRequest({ state, questions });
+  if ((await $.env.get("JEV_PAUSED")) === "1") throw new JevPausedError();
   const started = await $.clock.now();
   emit($, { kind: "start", source });
   try {

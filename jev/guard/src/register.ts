@@ -9,8 +9,7 @@ import type { EngineInterface, On, ToolCallResult } from "claude-code";
 import { BLOCK_NOTICE, gateBashCommand } from "../../lib/levels/level06/bash-gate.ts";
 import { screenToolResult } from "../../lib/levels/level06/result-screen.ts";
 import { gateWriteCall } from "../../lib/levels/level06/write-gate.ts";
-import { decide, levelConfig, verdict } from "../../lib/host/jev.ts";
-import { errorText } from "../../lib/host/tool.ts";
+import { decide, levelConfig, logFailure, verdict } from "../../lib/host/jev.ts";
 
 type Option = "A" | "B" | "C";
 
@@ -28,7 +27,7 @@ async function screen($: EngineInterface, tool: string, ran: ToolCallResult): Pr
     verdict($, source, d.flag ? `${tool} flagged · injection ${d.noul.toFixed(2)}` : `${tool} clean · ${d.noul.toFixed(2)}`, d.flag ? "warn" : "ok");
     return d.flag && d.banner ? { ...ran, context: [...(ran.context ?? []), d.banner] } : ran;
   } catch (err) {
-    $.ui.log(`jev-guard: result screen failed: ${errorText(err)}`);
+    logFailure($, "jev-guard: result screen failed: ", err);
     return ran;
   }
 }
@@ -41,7 +40,7 @@ async function gateWrite($: EngineInterface, tool: string, path: string, content
     verdict($, source, `${tool} ${d.block ? "blocked" : "ok"} · ${label(d.reason)}`, d.block ? "block" : "ok");
     return d.block ? `jev-guard blocked this ${tool}: ${d.reason}. ${BLOCK_NOTICE}` : null;
   } catch (err) {
-    $.ui.log(`jev-guard: write gate failed: ${errorText(err)}`);
+    logFailure($, "jev-guard: write gate failed: ", err);
     return null;
   }
 }
@@ -54,7 +53,7 @@ export function register(on: On) {
         verdict($, "tool.call Bash", `Bash ${d.block ? "blocked" : "ok"} · ${label(d.reason)}`, d.block ? "block" : "ok");
         if (d.block) return { deny: `jev-guard blocked this command: ${d.reason}. ${BLOCK_NOTICE}` };
       } catch (err) {
-        $.ui.log(`jev-guard: bash gate failed: ${errorText(err)}`);
+        logFailure($, "jev-guard: bash gate failed: ", err);
       }
     }
     return screen($, "Bash", await next(e));
