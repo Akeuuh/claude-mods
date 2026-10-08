@@ -1,0 +1,67 @@
+/**
+ * Level 6 as a Claude Code mod: guardrail hooks. The agent never knows Jev is here.
+ *
+ *   tool.call Bash          gateBashCommand, deny irreversible or destructive commands
+ *   tool.call Write, Edit   gateWriteCall, deny paths outside the repo (code) and credentials (Jev)
+ *   tool.call Read, Bash    screenToolResult on the result, a banner in `context` when it carries instructions
+ */
+import type { EngineInterface, On, ToolCallResult } from "claude-code";
+import { BLOCK_NOTICE, gateBashCommand } from "../../lib/levels/level06/bash-gate.ts";
+import { screenToolResult } from "../../lib/levels/level06/result-screen.ts";
+import { gateWriteCall } from "../../lib/levels/level06/write-gate.ts";
+import { decide, levelConfig } from "../../lib/host/jev.ts";
+import { errorText } from "../../lib/host/tool.ts";
+
+type Option = "A" | "B" | "C";
+
+async function gatesOn($: EngineInterface): Promise<Option[]> {
+  return (await levelConfig<{ gates: Option[] }>($, { gates: ["A", "B", "C"] })).gates;
+}
+
+async function screen($: EngineInterface, tool: string, ran: ToolCallResult): Promise<ToolCallResult> {
+  if (ran.deny !== undefined || !(await gatesOn($)).includes("C")) return ran;
+  try {
+    const d = await screenToolResult(tool, ran.text ?? "", (s, q) => decide($, `tool.result ${tool}`, s, q));
+    return d.flag && d.banner ? { ...ran, context: [...(ran.context ?? []), d.banner] } : ran;
+  } catch (err) {
+    $.ui.log(`jev-guard: result screen failed: ${errorText(err)}`);
+    return ran;
+  }
+}
+
+async function gateWrite($: EngineInterface, tool: string, path: string, content: string): Promise<string | null> {
+  if (!(await gatesOn($)).includes("B")) return null;
+  try {
+    const d = await gateWriteCall(path, content, await $.session.cwd(), (s, q) => decide($, `tool.call ${tool}`, s, q));
+    return d.block ? `jev-guard blocked this ${tool}: ${d.reason}. ${BLOCK_NOTICE}` : null;
+  } catch (err) {
+    $.ui.log(`jev-guard: write gate failed: ${errorText(err)}`);
+    return null;
+  }
+}
+
+export function register(on: On) {
+  on("tool.call", { tool: "Bash" }, async ($, e, next) => {
+    if ((await gatesOn($)).includes("A")) {
+      try {
+        const d = await gateBashCommand(e.command, await $.session.cwd(), (s, q) => decide($, "tool.call Bash", s, q));
+        if (d.block) return { deny: `jev-guard blocked this command: ${d.reason}. ${BLOCK_NOTICE}` };
+      } catch (err) {
+        $.ui.log(`jev-guard: bash gate failed: ${errorText(err)}`);
+      }
+    }
+    return screen($, "Bash", await next(e));
+  });
+
+  on("tool.call", { tool: "Write" }, async ($, e, next) => {
+    const deny = await gateWrite($, "Write", e.file_path, e.content);
+    return deny ? { deny } : next(e);
+  });
+
+  on("tool.call", { tool: "Edit" }, async ($, e, next) => {
+    const deny = await gateWrite($, "Edit", e.file_path, e.new_string);
+    return deny ? { deny } : next(e);
+  });
+
+  on("tool.call", { tool: "Read" }, async ($, e, next) => screen($, "Read", await next(e)));
+}

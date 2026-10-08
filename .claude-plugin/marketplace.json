@@ -3,5 +3,10 @@
   "owner": {
     "name": "Axel L."
   },
-  "plugins": []
+  "plugins": [
+    {
+      "name": "jev-guard",
+      "source": "./jev/guard"
+    }
+  ]
 }
