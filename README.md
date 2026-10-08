@@ -60,7 +60,7 @@ Les extensions pi de [ten-levels-of-jev](https://github.com/disler/ten-levels-of
 | `ask-jev-file` | `ask_jev_file_bool`, `_choice`, `_score` : une question typée sur un fichier sans le lire dans le contexte |
 | `ask-jev-files` | `ask_jev_files` sur beaucoup de fichiers en parallèle, puis `pick_first_file` |
 | `ask-jev` | `ask_jev` sur n'importe quelle situation (fichiers, sortie d'une commande, état de l'agent), avec suivi des coûts |
-| `jev-hud` | Bandeau au-dessus du prompt : spinner pendant que Jev réfléchit, chaque intervention en couleur (⛔ bloqué, ⚠ signalé, ✓ ok, ◆ réponse), appels, latence moyenne et coût. Déplace les lignes `jev · …` du transcript vers le debug log |
+| `jev-hud` | Bandeau au-dessus du prompt : spinner pendant que Jev réfléchit, chaque intervention en couleur (⛔ bloqué, ⚠ signalé, ✓ ok, ◆ réponse), appels, latence moyenne et coût. Bouton **Pause** (touche `p` quand le bandeau a le focus) : met `JEV_PAUSED=1` pour le process, et tous les mods jev arrêtent d'appeler Jev jusqu'à **Resume**. En pause, `jev-guard` laisse tout passer. Déplace les lignes `jev · …` du transcript vers le debug log |
 
 Il faut `OPENROUTER_API_KEY` ou `TYPESAFE_API_KEY` dans l'environnement de Claude Code (`JEV_BACKEND` force l'un des deux). `JEV_LEVEL_CONFIG` (JSON) règle les gates de `jev-guard` (`{"gates":["A","B"]}`) et les seuils de `jev-compact` (`{"lines":{"notice":80000,"recommend":120000,"request":160000}}`).
 
