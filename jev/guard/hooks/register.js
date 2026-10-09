@@ -393,10 +393,16 @@ var WRITE_QUESTIONS = {
   })
 };
 var WRITE_THRESHOLDS = { secret: 0.7 };
-function insideRepo(path, repo) {
-  const target = isAbsolute(path) ? path : resolve(repo, path);
-  const rel = relative(resolve(repo), target);
+function inside(path, dir) {
+  const target = isAbsolute(path) ? path : resolve(dir, path);
+  const rel = relative(resolve(dir), target);
   return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
+}
+function expandAllowPath(entry, cwd, home) {
+  return entry === "~" || entry.startsWith("~/") ? resolve(home, `.${entry.slice(1)}`) : resolve(cwd, entry);
+}
+function inAllowList(target, dirs, config) {
+  return dirs.some((dir) => !inside(config, dir) && inside(target, dir));
 }
 function gateWrite(a, secretFloor = WRITE_THRESHOLDS.secret) {
   if (a.contains_secret.noul >= secretFloor) {
@@ -408,7 +414,7 @@ function gateWrite(a, secretFloor = WRITE_THRESHOLDS.secret) {
   return { block: false, reason: `${a.kind.choice} (${a.kind.confidence.toFixed(2)}), secret ${a.contains_secret.noul.toFixed(2)}` };
 }
 async function gateWriteCall(path, content, repo, decide) {
-  if (!insideRepo(path, repo))
+  if (!inside(path, repo))
     return { block: true, reason: `outside the repo: ${path}` };
   const state = { path, content: content.length > 4000 ? content.slice(0, 4000) + `
 …` : content };
@@ -670,32 +676,48 @@ async function screen($, tool, ran) {
     return ran;
   }
 }
-async function allowed($, path) {
-  const home = await $.env.get("HOME") ?? "";
-  const file = `${home}/.config/claude-mods/jev.json`;
-  if (!await $.fs.exists(file))
+async function realPlace($, path) {
+  let dir = path;
+  let rest = "";
+  for (;; ) {
+    const real = (await $.fs.stat(dir, { resolve: true }).catch(() => {
+      return;
+    }))?.realPath;
+    if (real !== undefined)
+      return join(real, rest);
+    if (dirname(dir) === dir)
+      return path;
+    rest = join(basename(dir), rest);
+    dir = dirname(dir);
+  }
+}
+async function inConfiguredAllowList($, path, cwd) {
+  const home = await $.env.get("HOME");
+  if (!home)
     return false;
-  let dirs;
+  const file = `${home}/.config/claude-mods/jev.json`;
   try {
-    dirs = JSON.parse(await $.fs.read(file)).guard?.allowPaths ?? [];
+    if (!await $.fs.exists(file))
+      return false;
+    const entries = JSON.parse(await $.fs.read(file)).guard?.allowPaths ?? [];
+    const dirs = await Promise.all(entries.map((entry) => realPlace($, expandAllowPath(entry, cwd, home))));
+    return inAllowList(await realPlace($, resolve(cwd, path)), dirs, await realPlace($, file));
   } catch (err) {
-    logFailure($, `jev-guard: ${file} unreadable, no path allowed: `, err);
+    logFailure($, `jev-guard: ${file} unusable, no path allowed: `, err);
     return false;
   }
-  const cwd = await $.session.cwd();
-  const target = resolve(cwd, path);
-  return dirs.some((dir) => insideRepo(target, dir.startsWith("~/") ? resolve(home, dir.slice(2)) : resolve(cwd, dir)));
 }
 async function gateWrite2($, tool, path, content) {
   if (!(await gatesOn($)).includes("B"))
     return null;
   try {
     const source = `tool.call ${tool}`;
-    if (await allowed($, path)) {
+    const cwd = await $.session.cwd();
+    if (await inConfiguredAllowList($, path, cwd)) {
       verdict($, source, `${tool} ok · allow list`, "ok");
       return null;
     }
-    const d = await gateWriteCall(path, content, await $.session.cwd(), (s, q) => decide($, source, s, q));
+    const d = await gateWriteCall(path, content, cwd, (s, q) => decide($, source, s, q));
     verdict($, source, `${tool} ${d.block ? "blocked" : "ok"} · ${label(d.reason)}`, d.block ? "block" : "ok");
     return d.block ? `jev-guard blocked this ${tool}: ${d.reason}. ${BLOCK_NOTICE}` : null;
   } catch (err) {
