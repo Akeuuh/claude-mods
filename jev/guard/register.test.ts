@@ -137,13 +137,22 @@ test("a sibling sharing the prefix of an entry goes to Jev", async ($, on) => {
   expect(ran.deny).toContain("contains a credential");
 });
 
-test("a link out of an allowed directory goes to Jev", async ($, on) => {
-  jevAnswers(on, [...SECRET], { config: { guard: { allowPaths: [".scratch/"] } }, links: { "/repo/.scratch/out": "/etc" } });
+test("a link out of an allowed directory is denied as outside the repo", async ($, on) => {
+  jevAnswers(on, [], { config: { guard: { allowPaths: [".scratch/"] } }, links: { "/repo/.scratch/out": "/etc" } });
   on("tool.call", () => { throw new Error("the write ran"); });
 
-  const ran = await $.tool.call({ tool: "Write", file_path: "/repo/.scratch/out/creds.env", content: "KEY=sk-live" });
+  const ran = await $.tool.call({ tool: "Write", file_path: "/repo/.scratch/out/hosts", content: "x" });
 
-  expect(ran.deny).toContain("contains a credential");
+  expect(ran.deny).toContain("outside the repo: /etc/hosts");
+});
+
+test("a command naming the allow list file is denied without asking Jev", async ($, on) => {
+  jevAnswers(on, []);
+  on("tool.call", () => { throw new Error("the command ran"); });
+
+  const ran = await $.tool.call({ tool: "Bash", command: `echo '{"guard":{"allowPaths":["/"]}}' > ~/.config/claude-mods/jev.json` });
+
+  expect(ran.deny).toContain("names the allow list file");
 });
 
 test("while paused, a command runs without asking Jev and without an error line", async ($, on) => {
