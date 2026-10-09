@@ -8,7 +8,7 @@
     {
       "name": "jev-guard",
       "source": "./jev/guard",
-      "description": "Level 6: Jev gates Bash, Write and Edit, and screens Read and Bash results for injected instructions",
+      "description": "Jev gates Bash, Write and Edit, and screens Read and Bash results for injected instructions",
       "category": "security",
       "tags": [
         "jev",
@@ -21,7 +21,7 @@
     {
       "name": "jev-compact",
       "source": "./jev/compact",
-      "description": "Level 7: Jev decides when to compact, on every turn and on demand, and picks where the live work starts",
+      "description": "Jev decides when to compact, on every turn and on demand, and picks where the live work starts",
       "category": "productivity",
       "tags": [
         "jev",
@@ -32,7 +32,7 @@
     {
       "name": "ask-jev-file",
       "source": "./jev/ask-file",
-      "description": "Level 8: ask Jev a yes/no, a choice or a score about one file without reading it",
+      "description": "Ask Jev a yes/no, a choice or a score about one file without reading it",
       "category": "productivity",
       "tags": [
         "jev",
@@ -43,7 +43,7 @@
     {
       "name": "ask-jev-files",
       "source": "./jev/ask-files",
-      "description": "Level 9: ask Jev the same typed questions of many files in parallel, then pick the one to open first",
+      "description": "Ask Jev the same typed questions of many files in parallel, then pick the one to open first",
       "category": "productivity",
       "tags": [
         "jev",
@@ -55,7 +55,7 @@
     {
       "name": "ask-jev",
       "source": "./jev/ask",
-      "description": "Level 10: ask_jev on any situation, files, a command's output and your own state, with a spend ledger",
+      "description": "ask_jev on any situation, files, a command's output and your own state, with a spend ledger",
       "category": "productivity",
       "tags": [
         "jev",
@@ -77,6 +77,6 @@
     }
   ],
   "metadata": {
-    "description": "Claude Code mods built on function hooks: the jev family ports ten-levels-of-jev levels 6 to 10"
+    "description": "Claude Code mods built on function hooks"
   }
 }
