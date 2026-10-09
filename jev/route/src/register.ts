@@ -24,8 +24,8 @@ interface Router {
   config: RouteConfig;
   memory: Memory;
   mode: Mode;
-  /** Set by /jev-route floor and ceil, over the config's. */
-  bounds: Bounds;
+  /** Set by /jev-route floor and ceil, over the config's; null is "off". */
+  bounds: { floor?: number | null; ceil?: number | null };
   /** The session's model at the last prompt, to tell a /model change. */
   sessionModel?: string;
   last: string;
@@ -38,7 +38,8 @@ const USAGE = "/jev-route auto | pin <level> | floor <level|off> | ceil <level|o
 const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 const isRequest = (m: SessionMessage) => m.role === "user" && !m.toolResults?.length && m.text.trim() !== "";
 
-const boundsOf = (r: Router): Bounds => ({ floor: r.bounds.floor ?? r.config.floor, ceil: r.bounds.ceil ?? r.config.ceil });
+const bound = (set: number | null | undefined, configured?: number) => (set === undefined ? configured : (set ?? undefined));
+const boundsOf = (r: Router): Bounds => ({ floor: bound(r.bounds.floor, r.config.floor), ceil: bound(r.bounds.ceil, r.config.ceil) });
 
 function levelOf(r: Router): number | null {
   if (r.mode.kind === "manual") return null;
@@ -77,7 +78,7 @@ function runCommand(r: Router, args: string): string {
     case "floor":
     case "ceil":
       if (level === null && arg !== "off") return USAGE;
-      r.bounds = { ...r.bounds, [verb]: level ?? undefined };
+      r.bounds = { ...r.bounds, [verb]: level };
       return `jev-route: ${describe(r)}`;
     default:
       return USAGE;
@@ -117,6 +118,7 @@ async function routeState($: EngineInterface, text: string, currentLevel: number
 /** Jev's level, or "timeout": a slow call keeps the level rather than holding the prompt. */
 async function judge($: EngineInterface, source: string, state: object, timeoutMs: number): Promise<Judgment | "timeout"> {
   const judging = decide($, source, { ...state }, ROUTE_QUESTIONS).then((d) => judgmentOf(d.answers.level as ScoreAnswer));
+  judging.catch(() => {});
   return Promise.race([judging, $.clock.sleep(timeoutMs).then(() => "timeout" as const)]);
 }
 

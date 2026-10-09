@@ -314,7 +314,8 @@ var SOURCE = "route";
 var USAGE = "/jev-route auto | pin <level> | floor <level|off> | ceil <level|off> | status, a level being 1-5 or a tier such as sonnet/medium";
 var clip = (s, n) => s.length > n ? s.slice(0, n - 1) + "…" : s;
 var isRequest = (m) => m.role === "user" && !m.toolResults?.length && m.text.trim() !== "";
-var boundsOf = (r) => ({ floor: r.bounds.floor ?? r.config.floor, ceil: r.bounds.ceil ?? r.config.ceil });
+var bound = (set, configured) => set === undefined ? configured : set ?? undefined;
+var boundsOf = (r) => ({ floor: bound(r.bounds.floor, r.config.floor), ceil: bound(r.bounds.ceil, r.config.ceil) });
 function levelOf(r) {
   if (r.mode.kind === "manual")
     return null;
@@ -354,7 +355,7 @@ function runCommand(r, args) {
     case "ceil":
       if (level === null && arg !== "off")
         return USAGE;
-      r.bounds = { ...r.bounds, [verb]: level ?? undefined };
+      r.bounds = { ...r.bounds, [verb]: level };
       return `jev-route: ${describe(r)}`;
     default:
       return USAGE;
@@ -388,6 +389,7 @@ async function routeState($, text, currentLevel) {
 }
 async function judge($, source, state, timeoutMs) {
   const judging = decide($, source, { ...state }, ROUTE_QUESTIONS).then((d) => judgmentOf(d.answers.level));
+  judging.catch(() => {});
   return Promise.race([judging, $.clock.sleep(timeoutMs).then(() => "timeout")]);
 }
 async function routePrompt($, r, text) {
