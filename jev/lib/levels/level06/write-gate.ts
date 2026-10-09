@@ -28,11 +28,28 @@ export interface WriteGateAnswers {
 
 export const WRITE_THRESHOLDS = { secret: 0.7 };
 
-/** Paths stay in code: anything that resolves outside the repo is blocked before Jev is asked. */
-export function insideRepo(path: string, repo: string): boolean {
-  const target = isAbsolute(path) ? path : resolve(repo, path);
-  const rel = relative(resolve(repo), target);
+/** Whether `path` resolves strictly under `dir`. Paths stay in code: outside the repo blocks before Jev is asked. */
+export function inside(path: string, dir: string): boolean {
+  const target = isAbsolute(path) ? path : resolve(dir, path);
+  const rel = relative(resolve(dir), target);
   return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
+}
+
+export const ALLOW_LIST_FILE = ".config/claude-mods/jev.json";
+
+/** Bash could rewrite the allow list. Command text cannot prove it does not, so any mention of the file blocks. */
+export function mentionsAllowList(command: string): boolean {
+  return /jev\.json/i.test(command);
+}
+
+/** `~` entries sit under `home`, relative ones under `cwd`, absolute ones as given. */
+export function expandAllowPath(entry: string, cwd: string, home: string): string {
+  return entry === "~" || entry.startsWith("~/") ? resolve(home, `.${entry.slice(1)}`) : resolve(cwd, entry);
+}
+
+/** Real paths in. A directory holding the config never counts, so the agent cannot write itself a wider list. */
+export function inAllowList(target: string, dirs: string[], config: string): boolean {
+  return dirs.some((dir) => !inside(config, dir) && inside(target, dir));
 }
 
 export function gateWrite(a: WriteGateAnswers, secretFloor = WRITE_THRESHOLDS.secret): GateDecision {
@@ -47,7 +64,7 @@ export function gateWrite(a: WriteGateAnswers, secretFloor = WRITE_THRESHOLDS.se
 
 /** B: code decides on the path, Jev on the content. Content is trimmed so a big file does not blow the budget. */
 export async function gateWriteCall(path: string, content: string, repo: string, decide: Decide): Promise<GateDecision> {
-  if (!insideRepo(path, repo)) return { block: true, reason: `outside the repo: ${path}` };
+  if (!inside(path, repo)) return { block: true, reason: `outside the repo: ${path}` };
   const state: State = { path, content: content.length > 4000 ? content.slice(0, 4000) + "\n…" : content };
   const { answers } = await decide(state, WRITE_QUESTIONS as Questions);
   return gateWrite(answers as unknown as WriteGateAnswers);

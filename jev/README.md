@@ -14,6 +14,21 @@ Les mods jev appellent Jev via OpenRouter ou TypeSafe. Ils lisent la clé dans l
 
 Sans clé, les outils `ask_jev*` répondent « No Jev credentials », et `jev-guard` laisse tout passer.
 
+## Chemins autorisés de `jev-guard`
+
+Les Write/Edit sous un dossier autorisé passent sans appel à Jev, même hors du repo. La liste vit dans `~/.config/claude-mods/jev.json` (hors du repo, à versionner dans tes dotfiles) ; sans ce fichier, aucun chemin n'est autorisé :
+
+```json
+{ "guard": { "allowPaths": [".scratch/", "~/.claude/branch-notes/"] } }
+```
+
+- `~/` part du dossier personnel, un chemin absolu est pris tel quel, un chemin relatif part du dossier courant de la session (dans un sous-dossier, `.scratch/` désigne `<sous-dossier>/.scratch/`).
+- Les liens symboliques sont suivis : un lien qui sort d'un dossier autorisé repasse par le gate normal.
+- Une entrée qui contient le fichier de config (`~/`, `~/.config/`, `/`…) est ignorée : Claude ne peut pas élargir sa propre liste.
+- Toute commande Bash qui nomme `jev.json` est refusée. Ce filtre sur le texte se contourne (variable, glob, encodage) : le vrai rempart est le sandbox de Claude Code, qui interdit à Bash d'écrire hors du projet.
+- Un fichier illisible ou mal formé n'autorise rien.
+- Un chemin autorisé saute aussi la recherche de secrets par Jev : gitignore les dossiers du repo que tu y mets, comme `.scratch/`.
+
 ## Où mettre la clé
 
 Le principe : la clé vit dans **un fichier hors de git**, chargé par le shell. On ne la met jamais dans un fichier versionné.
