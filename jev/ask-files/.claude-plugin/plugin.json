@@ -1,6 +1,6 @@
 {
   "name": "ask-jev-files",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Ask Jev the same typed questions of many files in parallel, then pick the one to open first",
   "author": {
     "name": "Axel L.",

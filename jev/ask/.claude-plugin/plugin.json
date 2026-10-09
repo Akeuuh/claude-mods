@@ -1,6 +1,6 @@
 {
   "name": "ask-jev",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "ask_jev on any situation, files, a command's output and your own state, with a spend ledger",
   "author": {
     "name": "Axel L.",
