@@ -2,7 +2,7 @@
 
 All mods share one version, tagged `vX.Y.Z` on `main`. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.2.0] - 2026-10-09
 
 ### Added
 
@@ -19,4 +19,5 @@ All mods share one version, tagged `vX.Y.Z` on `main`. Format: [Keep a Changelog
 - `ask-jev`: `ask_jev` on any situation, with a spend ledger.
 - `jev-hud`: a band above the prompt showing Jev's calls, verdicts, latency and spend, with a pause button that sets `JEV_PAUSED`.
 
+[0.2.0]: https://github.com/Akeuuh/claude-mods/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Akeuuh/claude-mods/releases/tag/v0.1.0

@@ -1,6 +1,6 @@
 {
   "name": "ask-jev-file",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Ask Jev a yes/no, a choice or a score about one file without reading it",
   "author": {
     "name": "Axel L.",

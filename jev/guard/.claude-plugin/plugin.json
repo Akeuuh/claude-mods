@@ -1,6 +1,6 @@
 {
   "name": "jev-guard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Jev gates Bash, Write and Edit, and screens Read and Bash results for injected instructions",
   "author": {
     "name": "Axel L.",
