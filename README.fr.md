@@ -53,7 +53,7 @@ claude plugin install jev-guard@claude-mods
 Ou tous les mods d'un coup :
 
 ```bash
-for m in jev-guard jev-compact jev-route ask-jev-file ask-jev-files ask-jev jev-hud; do claude plugin install "$m@claude-mods"; done
+for m in jev-guard jev-compact jev-route ask-jev-file ask-jev-files ask-jev jev-hud branch-notes; do claude plugin install "$m@claude-mods"; done
 ```
 
 Dans une session : `/plugin marketplace add Akeuuh/claude-mods`, puis `/plugin` pour parcourir et installer. `--scope project` sur l'une ou l'autre commande partage l'installation avec les collaborateurs d'un repo via `.claude/settings.json`.
@@ -93,3 +93,11 @@ Les extensions pi de [ten-levels-of-jev](https://github.com/disler/ten-levels-of
 Il faut `OPENROUTER_API_KEY` ou `TYPESAFE_API_KEY` dans l'environnement de Claude Code (`JEV_BACKEND` force l'un des deux). `JEV_LEVEL_CONFIG` (JSON) règle les gates de `jev-guard` (`{"gates":["A","B"]}`) et les seuils de `jev-compact` (`{"lines":{"notice":80000,"recommend":120000,"request":160000}}`).
 
 Chaque décision Jev s'affiche en ligne grisée dans le transcript, invisible pour le modèle, et part aussi en JSON sur le debug log (préfixe `jev-event `) : c'est ce que lit `jev-hud`.
+
+## Famille `notes`
+
+| Mod | Rôle |
+|---|---|
+| `branch-notes` | Un fichier markdown de notes par branche git (objectif, décisions, contraintes, état) dans `~/.claude/branch-notes/<repo>/<branche>.md` (`/` écrit `%2F`), partagé par tous les worktrees du repo. Les notes voyagent dans le system prompt, donc survivent à un compactage ; le modèle les remplit avec l'outil `note_add` ; un `git checkout`/`switch` dans `Bash` recharge la branche. Pas de notes sur `main`, `master`, `develop` |
+
+`/notes` affiche les notes de la branche, `/notes all` liste celles du repo, `/notes pane` ouvre un panneau live, `/notes add <section> <texte>` ajoute une entrée (`objectif`, `decisions`, `contraintes`, `etat`), `/notes edit` ouvre le fichier, `/notes prune` liste les notes de branches disparues et `/notes prune --yes` les supprime.
