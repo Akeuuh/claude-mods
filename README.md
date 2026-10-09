@@ -19,7 +19,7 @@ claude plugin install jev-guard@claude-mods
 Or every mod at once:
 
 ```bash
-for m in jev-guard jev-compact jev-route ask-jev-file ask-jev-files ask-jev jev-hud; do claude plugin install "$m@claude-mods"; done
+for m in jev-guard jev-compact jev-route ask-jev-file ask-jev-files ask-jev jev-hud branch-notes; do claude plugin install "$m@claude-mods"; done
 ```
 
 Inside a session, `/plugin marketplace add Akeuuh/claude-mods` then `/plugin` to browse and install. `--scope project` on either command shares the install with a repo's collaborators through `.claude/settings.json`.
@@ -59,6 +59,14 @@ The pi extensions from [ten-levels-of-jev](https://github.com/disler/ten-levels-
 Claude Code needs `OPENROUTER_API_KEY` or `TYPESAFE_API_KEY` in its environment (`JEV_BACKEND` forces one of them). `JEV_LEVEL_CONFIG` (JSON) sets the `jev-guard` gates (`{"gates":["A","B"]}`) and the `jev-compact` thresholds (`{"lines":{"notice":80000,"recommend":120000,"request":160000}}`).
 
 Each Jev decision shows as a greyed line in the transcript, invisible to the model, and is also written as JSON to the debug log (prefix `jev-event `): that is what `jev-hud` reads.
+
+## The `notes` family
+
+| Mod | What it does |
+|---|---|
+| `branch-notes` | One markdown file of notes per git branch (goal, decisions, constraints, state) in `~/.claude/branch-notes/<repo>/<branch>.md` (`/` written `%2F`), shared by every worktree of the repo. The notes ride in the system prompt, so they survive a compaction; the model fills them with the `note_add` tool; a `git checkout`/`switch` in `Bash` reloads the branch. No notes on `main`, `master`, `develop` |
+
+`/notes` shows the notes of the branch, `/notes all` lists those of the repo, `/notes pane` opens a live pane, `/notes add <section> <text>` appends (`objectif`, `decisions`, `contraintes`, `etat`), `/notes edit` opens the file, `/notes prune` lists the notes of branches that no longer exist and `/notes prune --yes` deletes them.
 
 ## Layout
 
