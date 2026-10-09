@@ -1,1 +1,19 @@
-{ "name": "jev-guard", "version": "0.1.0", "description": "Level 6: Jev gates Bash, Write and Edit, and screens Read and Bash results for injected instructions" }
+{
+  "name": "jev-guard",
+  "version": "0.1.0",
+  "description": "Jev gates Bash, Write and Edit, and screens Read and Bash results for injected instructions",
+  "author": {
+    "name": "Axel L.",
+    "url": "https://github.com/Akeuuh"
+  },
+  "homepage": "https://github.com/Akeuuh/claude-mods/tree/main/jev/guard",
+  "repository": "https://github.com/Akeuuh/claude-mods",
+  "license": "MIT",
+  "keywords": [
+    "jev",
+    "guard",
+    "safety",
+    "prompt-injection",
+    "bash"
+  ]
+}

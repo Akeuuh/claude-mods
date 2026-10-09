@@ -1,1 +1,17 @@
-{ "name": "jev-compact", "version": "0.1.0", "description": "Level 7: Jev decides when to compact, on every turn and on demand, and picks where the live work starts" }
+{
+  "name": "jev-compact",
+  "version": "0.1.0",
+  "description": "Jev decides when to compact, on every turn and on demand, and picks where the live work starts",
+  "author": {
+    "name": "Axel L.",
+    "url": "https://github.com/Akeuuh"
+  },
+  "homepage": "https://github.com/Akeuuh/claude-mods/tree/main/jev/compact",
+  "repository": "https://github.com/Akeuuh/claude-mods",
+  "license": "MIT",
+  "keywords": [
+    "jev",
+    "compact",
+    "context"
+  ]
+}

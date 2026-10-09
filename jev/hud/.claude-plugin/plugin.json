@@ -1,1 +1,19 @@
-{ "name": "jev-hud", "version": "0.1.0", "description": "A band above the prompt that shows Jev at work: a spinner while it thinks, each intervention in colour, calls, latency and spend", "types": "./types/index.d.ts" }
+{
+  "name": "jev-hud",
+  "version": "0.1.0",
+  "description": "A band above the prompt that shows Jev at work: a spinner while it thinks, each intervention in colour, calls, latency and spend",
+  "author": {
+    "name": "Axel L.",
+    "url": "https://github.com/Akeuuh"
+  },
+  "homepage": "https://github.com/Akeuuh/claude-mods/tree/main/jev/hud",
+  "repository": "https://github.com/Akeuuh/claude-mods",
+  "license": "MIT",
+  "keywords": [
+    "jev",
+    "hud",
+    "ui",
+    "status"
+  ],
+  "types": "./types/index.d.ts"
+}

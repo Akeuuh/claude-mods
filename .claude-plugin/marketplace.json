@@ -1,32 +1,82 @@
 {
   "name": "claude-mods",
   "owner": {
-    "name": "Axel L."
+    "name": "Axel L.",
+    "url": "https://github.com/Akeuuh"
   },
   "plugins": [
     {
       "name": "jev-guard",
-      "source": "./jev/guard"
+      "source": "./jev/guard",
+      "description": "Jev gates Bash, Write and Edit, and screens Read and Bash results for injected instructions",
+      "category": "security",
+      "tags": [
+        "jev",
+        "guard",
+        "safety",
+        "prompt-injection",
+        "bash"
+      ]
     },
     {
       "name": "jev-compact",
-      "source": "./jev/compact"
+      "source": "./jev/compact",
+      "description": "Jev decides when to compact, on every turn and on demand, and picks where the live work starts",
+      "category": "productivity",
+      "tags": [
+        "jev",
+        "compact",
+        "context"
+      ]
     },
     {
       "name": "ask-jev-file",
-      "source": "./jev/ask-file"
+      "source": "./jev/ask-file",
+      "description": "Ask Jev a yes/no, a choice or a score about one file without reading it",
+      "category": "productivity",
+      "tags": [
+        "jev",
+        "files",
+        "classification"
+      ]
     },
     {
       "name": "ask-jev-files",
-      "source": "./jev/ask-files"
+      "source": "./jev/ask-files",
+      "description": "Ask Jev the same typed questions of many files in parallel, then pick the one to open first",
+      "category": "productivity",
+      "tags": [
+        "jev",
+        "files",
+        "classification",
+        "batch"
+      ]
     },
     {
       "name": "ask-jev",
-      "source": "./jev/ask"
+      "source": "./jev/ask",
+      "description": "ask_jev on any situation, files, a command's output and your own state, with a spend ledger",
+      "category": "productivity",
+      "tags": [
+        "jev",
+        "decision",
+        "classification"
+      ]
     },
     {
       "name": "jev-hud",
-      "source": "./jev/hud"
+      "source": "./jev/hud",
+      "description": "A band above the prompt that shows Jev at work: a spinner while it thinks, each intervention in colour, calls, latency and spend",
+      "category": "productivity",
+      "tags": [
+        "jev",
+        "hud",
+        "ui",
+        "status"
+      ]
     }
-  ]
+  ],
+  "metadata": {
+    "description": "Claude Code mods built on function hooks"
+  }
 }
