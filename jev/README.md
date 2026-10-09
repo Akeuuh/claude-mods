@@ -25,6 +25,7 @@ Les Write/Edit sous un dossier autorisé passent sans appel à Jev, même hors d
 - `~/` part du dossier personnel, un chemin absolu est pris tel quel, un chemin relatif part du dossier courant de la session (dans un sous-dossier, `.scratch/` désigne `<sous-dossier>/.scratch/`).
 - Les liens symboliques sont suivis : un lien qui sort d'un dossier autorisé repasse par le gate normal.
 - Une entrée qui contient le fichier de config (`~/`, `~/.config/`, `/`…) est ignorée : Claude ne peut pas élargir sa propre liste.
+- Toute commande Bash qui nomme `jev.json` est refusée. Ce filtre sur le texte se contourne (variable, glob, encodage) : le vrai rempart est le sandbox de Claude Code, qui interdit à Bash d'écrire hors du projet.
 - Un fichier illisible ou mal formé n'autorise rien.
 - Un chemin autorisé saute aussi la recherche de secrets par Jev : gitignore les dossiers du repo que tu y mets, comme `.scratch/`.
 
