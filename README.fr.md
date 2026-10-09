@@ -2,6 +2,8 @@
 
 Mes mods Claude Code (plugins à base de function hooks). Le repo est aussi une marketplace : `.claude-plugin/marketplace.json` liste chaque mod.
 
+[English version](README.md)
+
 ## Arborescence
 
 ```
@@ -15,6 +17,7 @@ scripts/build.ts                  bundle chaque <famille>/<mod>/src/register.ts(
     hooks/register.js             généré par le build, commité (c'est ce que Claude Code charge)
     src/register.ts               le source du mod
     register.test.ts              lancé par `claude plugin test`
+    LICENSE                       livré avec le mod, installé seul
 ```
 
 Un module de hooks ne peut importer que les fichiers de son propre plugin et tourne sans Node : le build inline le `lib/` de la famille dans chaque `register.js`. Tout accès au système passe par `$` (`$.fs`, `$.http.fetch`, `$.env`, `$.process`).
