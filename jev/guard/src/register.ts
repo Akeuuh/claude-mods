@@ -5,10 +5,11 @@
  *   tool.call Write, Edit   gateWriteCall, deny paths outside the repo (code) and credentials (Jev), except the allow list in ~/.config/claude-mods/jev.json
  *   tool.call Read, Bash    screenToolResult on the result, a banner in `context` when it carries instructions
  */
+import { resolve } from "node:path";
 import type { EngineInterface, On, ToolCallResult } from "claude-code";
 import { BLOCK_NOTICE, gateBashCommand } from "../../lib/levels/level06/bash-gate.ts";
 import { screenToolResult } from "../../lib/levels/level06/result-screen.ts";
-import { allowedPath, gateWriteCall } from "../../lib/levels/level06/write-gate.ts";
+import { gateWriteCall, insideRepo } from "../../lib/levels/level06/write-gate.ts";
 import { decide, levelConfig, logFailure, verdict } from "../../lib/host/jev.ts";
 
 type Option = "A" | "B" | "C";
@@ -32,24 +33,28 @@ async function screen($: EngineInterface, tool: string, ran: ToolCallResult): Pr
   }
 }
 
-async function allowedPaths($: EngineInterface, home: string): Promise<string[]> {
+/** Whether `path` sits under a directory of guard.allowPaths. `~/` entries sit under HOME, relative ones under the cwd. */
+async function allowed($: EngineInterface, path: string): Promise<boolean> {
+  const home = (await $.env.get("HOME")) ?? "";
   const file = `${home}/.config/claude-mods/jev.json`;
-  if (!(await $.fs.exists(file))) return [];
+  if (!(await $.fs.exists(file))) return false;
+  let dirs: string[];
   try {
-    const config = JSON.parse(await $.fs.read(file)) as { guard?: { allowPaths?: string[] } };
-    return config.guard?.allowPaths ?? [];
+    dirs = (JSON.parse(await $.fs.read(file)) as { guard?: { allowPaths?: string[] } }).guard?.allowPaths ?? [];
   } catch (err) {
     logFailure($, `jev-guard: ${file} unreadable, no path allowed: `, err);
-    return [];
+    return false;
   }
+  const cwd = await $.session.cwd();
+  const target = resolve(cwd, path);
+  return dirs.some((dir) => insideRepo(target, dir.startsWith("~/") ? resolve(home, dir.slice(2)) : resolve(cwd, dir)));
 }
 
 async function gateWrite($: EngineInterface, tool: string, path: string, content: string): Promise<string | null> {
   if (!(await gatesOn($)).includes("B")) return null;
   try {
     const source = `tool.call ${tool}`;
-    const home = (await $.env.get("HOME")) ?? "";
-    if (allowedPath(path, await $.session.cwd(), home, await allowedPaths($, home))) {
+    if (await allowed($, path)) {
       verdict($, source, `${tool} ok · allow list`, "ok");
       return null;
     }

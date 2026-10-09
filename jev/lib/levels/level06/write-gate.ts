@@ -35,12 +35,6 @@ export function insideRepo(path: string, repo: string): boolean {
   return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
 }
 
-/** Writes under an allowed directory skip the gate. `~/` entries sit under `home`, relative ones under the repo. */
-export function allowedPath(path: string, repo: string, home: string, allow: string[]): boolean {
-  const target = resolve(repo, path);
-  return allow.some((dir) => insideRepo(target, dir.startsWith("~/") ? resolve(home, dir.slice(2)) : resolve(repo, dir)));
-}
-
 export function gateWrite(a: WriteGateAnswers, secretFloor = WRITE_THRESHOLDS.secret): GateDecision {
   if (a.contains_secret.noul >= secretFloor) {
     return { block: true, reason: `contains a credential (${a.contains_secret.noul.toFixed(2)}): write it to an ignored .env or a secret store, not the repo` };
