@@ -30,6 +30,18 @@
       ]
     },
     {
+      "name": "jev-route",
+      "source": "./jev/route",
+      "description": "Jev picks the model and the effort for each request, from how demanding it is",
+      "category": "productivity",
+      "tags": [
+        "jev",
+        "model",
+        "routing",
+        "effort"
+      ]
+    },
+    {
       "name": "ask-jev-file",
       "source": "./jev/ask-file",
       "description": "Ask Jev a yes/no, a choice or a score about one file without reading it",

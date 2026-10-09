@@ -29,6 +29,40 @@ Les Write/Edit sous un dossier autorisé passent sans appel à Jev, même hors d
 - Un fichier illisible ou mal formé n'autorise rien.
 - Un chemin autorisé saute aussi la recherche de secrets par Jev : gitignore les dossiers du repo que tu y mets, comme `.scratch/`.
 
+## Paliers de `jev-route`
+
+À chaque prompt, Jev note la complexité de la demande de 1 à 5. Chaque niveau correspond à un palier modèle + effort. Les valeurs par défaut se règlent dans la clé `route` du même `~/.config/claude-mods/jev.json` ; une clé de `JEV_LEVEL_CONFIG` (`{"route":{…}}`) l'emporte sur le fichier :
+
+```json
+{
+  "route": {
+    "tiers": [
+      { "model": "haiku", "effort": "low" },
+      { "model": "sonnet", "effort": "low" },
+      { "model": "sonnet", "effort": "medium" },
+      { "model": "opus", "effort": "high" },
+      { "model": "opus", "effort": "max" }
+    ],
+    "freeDescentTokens": 20000,
+    "descentStreak": 2,
+    "minConfidence": 0.6,
+    "shortPrompt": 12,
+    "timeoutMs": 1500,
+    "floor": 2
+  }
+}
+```
+
+- Les niveaux : 1 question factuelle ou commande triviale ; 2 edit borné, renommage, tests ; 3 feature ou bug standard ; 4 debug dur, refacto transverse, design d'API ; 5 architecture, ambiguïté forte, sécurité ou données en jeu.
+- `model` : un alias `haiku`, `sonnet` ou `opus` (le mod le traduit en id, l'API ne connaît que les ids), ou un id complet comme `claude-sonnet-5-5`.
+- Monter est immédiat. Changer de modèle recharge toute la conversation hors cache, donc on ne redescend tout de suite que sous `freeDescentTokens` de contexte ; au-delà, après `descentStreak` prompts plus simples d'affilée.
+- Sous `minConfidence`, ou si Jev met plus de `timeoutMs` à répondre ou échoue, le palier ne bouge pas (au premier prompt : le modèle de la session).
+- Un prompt de `shortPrompt` caractères ou moins (« ok », « A », « vas-y ») garde le palier sans appeler Jev.
+- `floor` et `ceil` (niveaux 1-5) bornent ce que Jev choisit, pour le main comme pour les subagents.
+- Un subagent lancé sans `model` et dont la définition n'en impose pas est jugé sur sa tâche, sans la retenue du main (il part avec un contexte vide).
+- `/jev-route` : `status`, `pin <niveau|palier>` (ex. `pin sonnet/medium`), `floor <niveau|off>`, `ceil <niveau|off>`, `auto` (repart en auto, efface pin, floor et ceil de la session). Un changement de `/model` coupe le routage jusqu'à `auto`. Pendant la pause de `jev-hud`, c'est le modèle de la session qui part.
+- `bun scripts/calibrate-route.ts` passe les prompts annotés de `scripts/route-calibration.json` au vrai Jev et donne l'accord exact et à ±1 niveau : à relancer après avoir touché aux descriptions de niveaux.
+
 ## Où mettre la clé
 
 Le principe : la clé vit dans **un fichier hors de git**, chargé par le shell. On ne la met jamais dans un fichier versionné.

@@ -60,7 +60,7 @@ const brief = (a: Answer) =>
  */
 export const EVENT_PREFIX = "jev-event ";
 
-export type Tone = "block" | "warn" | "ok";
+export type Tone = "block" | "warn" | "ok" | "info";
 
 export type JevEvent =
   | { kind: "start"; source: string }
