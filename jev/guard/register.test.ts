@@ -10,6 +10,7 @@ const choice = (pick: string, keys: string[], p: number) => ({
 });
 
 const CONFIG = "/home/.config/claude-mods/jev.json";
+const SECRET = [{ kind: choice("secrets", ["source_code", "config", "secrets", "docs", "data"], 0.9), contains_secret: { type: "noul", noul: 0.9 } }];
 
 interface Setup {
   env?: Record<string, string>;
@@ -98,8 +99,6 @@ test("without a config, a write in .scratch goes to Jev", async ($, on) => {
 
   expect(ran.deny).toContain("contains a credential");
 });
-
-const SECRET = [{ kind: choice("secrets", ["source_code", "config", "secrets", "docs", "data"], 0.9), contains_secret: { type: "noul", noul: 0.9 } }];
 
 test("an Edit under a configured directory runs without asking Jev", async ($, on) => {
   jevAnswers(on, [], { config: { guard: { allowPaths: ["~/.claude/branch-notes/"] } } });
