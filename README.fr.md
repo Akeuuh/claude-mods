@@ -53,7 +53,7 @@ claude plugin install jev-guard@claude-mods
 Ou tous les mods d'un coup :
 
 ```bash
-for m in jev-guard jev-compact ask-jev-file ask-jev-files ask-jev jev-hud; do claude plugin install "$m@claude-mods"; done
+for m in jev-guard jev-compact jev-route ask-jev-file ask-jev-files ask-jev jev-hud; do claude plugin install "$m@claude-mods"; done
 ```
 
 Dans une session : `/plugin marketplace add Akeuuh/claude-mods`, puis `/plugin` pour parcourir et installer. `--scope project` sur l'une ou l'autre commande partage l'installation avec les collaborateurs d'un repo via `.claude/settings.json`.
@@ -84,6 +84,7 @@ Les extensions pi de [ten-levels-of-jev](https://github.com/disler/ten-levels-of
 |---|---|
 | `jev-guard` | Jev bloque les `Bash` irréversibles ou destructeurs, les `Write`/`Edit` hors du repo ou contenant un secret, et marque les résultats de `Read`/`Bash` qui contiennent des instructions |
 | `jev-compact` | À chaque fin de tour, Jev juge s'il faut compacter ; outils `should_i_compact` et `compact_now` ; à la compaction, Jev choisit où commence le travail en cours |
+| `jev-route` | Jev note la complexité de chaque prompt (5 niveaux) et choisit le modèle et l'effort qui le traitent ; un subagent sans modèle à lui est jugé sur sa tâche. Ne redescend que si le contexte est petit ou après deux prompts plus simples, pour épargner le cache. `/jev-route auto\|pin\|floor\|ceil\|status` ; un `/model` le coupe jusqu'à `auto`. Paliers dans `~/.config/claude-mods/jev.json` (voir [jev/README.md](jev/README.md)) |
 | `ask-jev-file` | `ask_jev_file_bool`, `_choice`, `_score` : une question typée sur un fichier sans le lire dans le contexte |
 | `ask-jev-files` | `ask_jev_files` sur beaucoup de fichiers en parallèle, puis `pick_first_file` |
 | `ask-jev` | `ask_jev` sur n'importe quelle situation (fichiers, sortie d'une commande, état de l'agent), avec suivi des coûts |

@@ -2,6 +2,12 @@
 
 All mods share one version, tagged `vX.Y.Z` on `main`. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- `jev-route`: Jev picks the model and the effort for each prompt and for each subagent with no model of its own, with `/jev-route` to pin, bound or turn it off, and its tiers in `~/.config/claude-mods/jev.json`.
+
 ## [0.1.0] - 2026-10-09
 
 ### Added
