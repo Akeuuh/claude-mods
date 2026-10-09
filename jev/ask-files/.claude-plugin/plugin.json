@@ -1,1 +1,18 @@
-{ "name": "ask-jev-files", "version": "0.1.0", "description": "Level 9: ask Jev the same typed questions of many files in parallel, then pick the one to open first" }
+{
+  "name": "ask-jev-files",
+  "version": "0.1.0",
+  "description": "Level 9: ask Jev the same typed questions of many files in parallel, then pick the one to open first",
+  "author": {
+    "name": "Axel L.",
+    "url": "https://github.com/Akeuuh"
+  },
+  "homepage": "https://github.com/Akeuuh/claude-mods/tree/main/jev/ask-files",
+  "repository": "https://github.com/Akeuuh/claude-mods",
+  "license": "MIT",
+  "keywords": [
+    "jev",
+    "files",
+    "classification",
+    "batch"
+  ]
+}

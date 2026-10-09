@@ -1,1 +1,17 @@
-{ "name": "ask-jev-file", "version": "0.1.0", "description": "Level 8: ask Jev a yes/no, a choice or a score about one file without reading it" }
+{
+  "name": "ask-jev-file",
+  "version": "0.1.0",
+  "description": "Level 8: ask Jev a yes/no, a choice or a score about one file without reading it",
+  "author": {
+    "name": "Axel L.",
+    "url": "https://github.com/Akeuuh"
+  },
+  "homepage": "https://github.com/Akeuuh/claude-mods/tree/main/jev/ask-file",
+  "repository": "https://github.com/Akeuuh/claude-mods",
+  "license": "MIT",
+  "keywords": [
+    "jev",
+    "files",
+    "classification"
+  ]
+}
