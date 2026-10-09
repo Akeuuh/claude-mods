@@ -6,12 +6,34 @@ Claude Code mods (plugins built on function hooks). The repo is also a plugin ma
 
 ## Install
 
+Add the marketplace once, then install the mods you want:
+
 ```bash
 claude plugin marketplace add Akeuuh/claude-mods
 ```
 
 ```bash
 claude plugin install jev-guard@claude-mods
+```
+
+Or every mod at once:
+
+```bash
+for m in jev-guard jev-compact ask-jev-file ask-jev-files ask-jev jev-hud; do claude plugin install "$m@claude-mods"; done
+```
+
+Inside a session, `/plugin marketplace add Akeuuh/claude-mods` then `/plugin` to browse and install. `--scope project` on either command shares the install with a repo's collaborators through `.claude/settings.json`.
+
+The jev mods need an API key in Claude Code's environment: see [jev/README.md](jev/README.md).
+
+Update to the latest release:
+
+```bash
+claude plugin marketplace update claude-mods
+```
+
+```bash
+claude plugin update jev-guard@claude-mods
 ```
 
 From a local clone (Claude Code then reads the mods in place; after a build, `/reload-plugins`):

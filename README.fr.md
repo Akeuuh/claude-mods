@@ -40,17 +40,41 @@ bun run validate
 
 ## Installer
 
-En local, depuis ce dossier (Claude Code lit alors les mods directement ici ; après un build, `/reload-plugins`) :
+Ajouter la marketplace une fois, puis installer les mods voulus :
 
 ```bash
-claude plugin marketplace add /chemin/vers/claude-mods
+claude plugin marketplace add Akeuuh/claude-mods
 ```
 
 ```bash
 claude plugin install jev-guard@claude-mods
 ```
 
-Depuis GitHub, une fois poussé : `/plugin install <mod> --marketplace <owner>/claude-mods`.
+Ou tous les mods d'un coup :
+
+```bash
+for m in jev-guard jev-compact ask-jev-file ask-jev-files ask-jev jev-hud; do claude plugin install "$m@claude-mods"; done
+```
+
+Dans une session : `/plugin marketplace add Akeuuh/claude-mods`, puis `/plugin` pour parcourir et installer. `--scope project` sur l'une ou l'autre commande partage l'installation avec les collaborateurs d'un repo via `.claude/settings.json`.
+
+Les mods jev ont besoin d'une clé API dans l'environnement de Claude Code : voir [jev/README.md](jev/README.md).
+
+Mettre à jour vers la dernière release :
+
+```bash
+claude plugin marketplace update claude-mods
+```
+
+```bash
+claude plugin update jev-guard@claude-mods
+```
+
+En local, depuis un clone (Claude Code lit alors les mods directement ici ; après un build, `/reload-plugins`) :
+
+```bash
+claude plugin marketplace add /chemin/vers/claude-mods
+```
 
 ## Famille `jev`
 

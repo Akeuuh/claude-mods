@@ -106,7 +106,7 @@ alias claude-perso='CLAUDE_CONFIG_DIR=$HOME/.claude-perso OPENROUTER_API_KEY=$OP
 Les mods, eux, s'installent dans chaque profil :
 
 ```bash
-CLAUDE_CONFIG_DIR=$HOME/.claude-perso claude plugin marketplace add <chemin du repo claude-mods>
+CLAUDE_CONFIG_DIR=$HOME/.claude-perso claude plugin marketplace add Akeuuh/claude-mods
 ```
 
 ## À éviter
