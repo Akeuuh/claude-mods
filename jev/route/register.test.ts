@@ -234,3 +234,13 @@ test("a floor that holds the level is not shown as a move", async ($, on) => {
     "route 3 · unsure (0.30)",
   ]);
 });
+
+test("floor off lifts a floor set in the config file", async ($, on) => {
+  const { world } = engine(on, { replies: [level(1)], config: { route: { floor: 3 } } });
+
+  await $.command.run({ command: "jev-route", args: "floor off" } as never);
+  await say($, EASY);
+  await step($);
+
+  expect(world.sent[0]).toMatchObject({ model: "claude-haiku-5-5", effort: "low" });
+});
