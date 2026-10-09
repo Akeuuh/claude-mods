@@ -43,7 +43,7 @@ bun run validate
 En local, depuis ce dossier (Claude Code lit alors les mods directement ici ; après un build, `/reload-plugins`) :
 
 ```bash
-claude plugin marketplace add /Users/aleclercq/Dev/IA/claude-mods
+claude plugin marketplace add /chemin/vers/claude-mods
 ```
 
 ```bash
