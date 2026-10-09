@@ -398,6 +398,10 @@ function insideRepo(path, repo) {
   const rel = relative(resolve(repo), target);
   return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
 }
+function allowedPath(path, repo, home, allow) {
+  const target = resolve(repo, path);
+  return allow.some((dir) => insideRepo(target, dir.startsWith("~/") ? resolve(home, dir.slice(2)) : resolve(repo, dir)));
+}
 function gateWrite(a, secretFloor = WRITE_THRESHOLDS.secret) {
   if (a.contains_secret.noul >= secretFloor) {
     return { block: true, reason: `contains a credential (${a.contains_secret.noul.toFixed(2)}): write it to an ignored .env or a secret store, not the repo` };
@@ -670,11 +674,28 @@ async function screen($, tool, ran) {
     return ran;
   }
 }
+async function allowedPaths($, home) {
+  const file = `${home}/.config/claude-mods/jev.json`;
+  if (!await $.fs.exists(file))
+    return [];
+  try {
+    const config = JSON.parse(await $.fs.read(file));
+    return config.guard?.allowPaths ?? [];
+  } catch (err) {
+    logFailure($, `jev-guard: ${file} unreadable, no path allowed: `, err);
+    return [];
+  }
+}
 async function gateWrite2($, tool, path, content) {
   if (!(await gatesOn($)).includes("B"))
     return null;
   try {
     const source = `tool.call ${tool}`;
+    const home = await $.env.get("HOME") ?? "";
+    if (allowedPath(path, await $.session.cwd(), home, await allowedPaths($, home))) {
+      verdict($, source, `${tool} ok · allow list`, "ok");
+      return null;
+    }
     const d = await gateWriteCall(path, content, await $.session.cwd(), (s, q) => decide($, source, s, q));
     verdict($, source, `${tool} ${d.block ? "blocked" : "ok"} · ${label(d.reason)}`, d.block ? "block" : "ok");
     return d.block ? `jev-guard blocked this ${tool}: ${d.reason}. ${BLOCK_NOTICE}` : null;
