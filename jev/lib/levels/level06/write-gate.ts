@@ -35,6 +35,13 @@ export function inside(path: string, dir: string): boolean {
   return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
 }
 
+export const ALLOW_LIST_FILE = ".config/claude-mods/jev.json";
+
+/** Bash could rewrite the allow list. Command text cannot prove it does not, so any mention of the file blocks. */
+export function mentionsAllowList(command: string): boolean {
+  return /jev\.json/i.test(command);
+}
+
 /** `~` entries sit under `home`, relative ones under `cwd`, absolute ones as given. */
 export function expandAllowPath(entry: string, cwd: string, home: string): string {
   return entry === "~" || entry.startsWith("~/") ? resolve(home, `.${entry.slice(1)}`) : resolve(cwd, entry);

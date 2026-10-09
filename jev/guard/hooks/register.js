@@ -398,6 +398,10 @@ function inside(path, dir) {
   const rel = relative(resolve(dir), target);
   return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
 }
+var ALLOW_LIST_FILE = ".config/claude-mods/jev.json";
+function mentionsAllowList(command) {
+  return /jev\.json/i.test(command);
+}
 function expandAllowPath(entry, cwd, home) {
   return entry === "~" || entry.startsWith("~/") ? resolve(home, `.${entry.slice(1)}`) : resolve(cwd, entry);
 }
@@ -691,17 +695,17 @@ async function realPlace($, path) {
     dir = dirname(dir);
   }
 }
-async function inConfiguredAllowList($, path, cwd) {
+async function inConfiguredAllowList($, target, cwd) {
   const home = await $.env.get("HOME");
   if (!home)
     return false;
-  const file = `${home}/.config/claude-mods/jev.json`;
+  const file = `${home}/${ALLOW_LIST_FILE}`;
   try {
     if (!await $.fs.exists(file))
       return false;
     const entries = JSON.parse(await $.fs.read(file)).guard?.allowPaths ?? [];
     const dirs = await Promise.all(entries.map((entry) => realPlace($, expandAllowPath(entry, cwd, home))));
-    return inAllowList(await realPlace($, resolve(cwd, path)), dirs, await realPlace($, file));
+    return inAllowList(target, dirs, await realPlace($, file));
   } catch (err) {
     logFailure($, `jev-guard: ${file} unusable, no path allowed: `, err);
     return false;
@@ -713,11 +717,12 @@ async function gateWrite2($, tool, path, content) {
   try {
     const source = `tool.call ${tool}`;
     const cwd = await $.session.cwd();
-    if (await inConfiguredAllowList($, path, cwd)) {
+    const target = await realPlace($, resolve(cwd, path));
+    if (await inConfiguredAllowList($, target, cwd)) {
       verdict($, source, `${tool} ok · allow list`, "ok");
       return null;
     }
-    const d = await gateWriteCall(path, content, cwd, (s, q) => decide($, source, s, q));
+    const d = await gateWriteCall(target, content, await realPlace($, cwd), (s, q) => decide($, source, s, q));
     verdict($, source, `${tool} ${d.block ? "blocked" : "ok"} · ${label(d.reason)}`, d.block ? "block" : "ok");
     return d.block ? `jev-guard blocked this ${tool}: ${d.reason}. ${BLOCK_NOTICE}` : null;
   } catch (err) {
@@ -727,6 +732,10 @@ async function gateWrite2($, tool, path, content) {
 }
 function register(on) {
   on("tool.call", { tool: "Bash" }, async ($, e, next) => {
+    if ((await gatesOn($)).includes("B") && mentionsAllowList(e.command)) {
+      verdict($, "tool.call Bash", "Bash blocked · allow list file", "block");
+      return { deny: `jev-guard blocked this command: it names the allow list file ~/${ALLOW_LIST_FILE}, which only the user edits. ${BLOCK_NOTICE}` };
+    }
     if ((await gatesOn($)).includes("A")) {
       try {
         const d = await gateBashCommand(e.command, await $.session.cwd(), (s, q) => decide($, "tool.call Bash", s, q));
