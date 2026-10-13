@@ -311,7 +311,7 @@ function parseLevel(arg, config) {
 
 // jev/route/src/register.ts
 var SOURCE = "route";
-var USAGE = "/jev-route auto | pin <level> | floor <level|off> | ceil <level|off> | status, a level being 1-5 or a tier such as sonnet/medium";
+var USAGE = "/jev-route auto | off | pin <level> | floor <level|off> | ceil <level|off> | status, a level being 1-5 or a tier such as sonnet/medium";
 var clip = (s, n) => s.length > n ? s.slice(0, n - 1) + "…" : s;
 var isRequest = (m) => m.role === "user" && !m.toolResults?.length && m.text.trim() !== "";
 var bound = (set, configured) => set === undefined ? configured : set ?? undefined;
@@ -329,7 +329,7 @@ function tierOf(r) {
 }
 function describe(r) {
   if (r.mode.kind === "manual")
-    return `off, /model ${r.mode.model} · /jev-route auto to resume`;
+    return `off${r.mode.model ? `, /model ${r.mode.model}` : ""} · /jev-route auto to resume`;
   const level = levelOf(r);
   const { floor, ceil } = boundsOf(r);
   const limits = [floor && `floor ${floor}`, ceil && `ceil ${ceil}`].filter(Boolean).join(" ");
@@ -340,23 +340,26 @@ function runCommand(r, args) {
   const level = parseLevel(arg, r.config);
   switch (verb) {
     case "status":
-      return `jev-route: ${describe(r)}. Last: ${r.last}.`;
+      return `${describe(r)}. Last: ${r.last}.`;
     case "auto":
       r.mode = { kind: "auto" };
       r.bounds = {};
       r.sessionModel = undefined;
-      return `jev-route: ${describe(r)}`;
+      return describe(r);
+    case "off":
+      r.mode = { kind: "manual" };
+      return describe(r);
     case "pin":
       if (level === null)
         return USAGE;
       r.mode = { kind: "pin", level };
-      return `jev-route: ${describe(r)}`;
+      return describe(r);
     case "floor":
     case "ceil":
       if (level === null && arg !== "off")
         return USAGE;
       r.bounds = { ...r.bounds, [verb]: level };
-      return `jev-route: ${describe(r)}`;
+      return describe(r);
     default:
       return USAGE;
   }
@@ -449,7 +452,12 @@ function register(on) {
     subagents: new Map
   };
   on("session.start", async ($, e, next) => {
-    await $.command.register({ name: "jev-route", description: "Jev picks the model per request: auto, pin, floor, ceil, status" });
+    await $.command.register({ name: "jev-route", description: "Jev picks the model per request: auto, off, pin, floor, ceil, status" });
+    try {
+      r.sessionModel = await $.session.model();
+    } catch (err) {
+      logFailure($, "jev-route: ", err);
+    }
     return next(e);
   });
   on("command.run", { command: "jev-route" }, async ($, e) => {
@@ -466,7 +474,7 @@ function register(on) {
     return next(e);
   });
   on("agent.spawn", async ($, e, next) => {
-    if (e.model !== undefined || await isPaused($))
+    if (r.mode.kind !== "auto" || e.model !== undefined || await isPaused($))
       return next(e);
     const judging = judgeSubagent($, r, e.prompt, e.subagentType);
     const started = await next(e);
@@ -475,7 +483,7 @@ function register(on) {
     return started;
   });
   on("turn.step", async function* ($, e, next) {
-    const tier = e.agentId === undefined ? tierOf(r) : await r.subagents.get(e.agentId);
+    const tier = e.agentId === undefined ? tierOf(r) : r.mode.kind === "auto" ? await r.subagents.get(e.agentId) : null;
     if (!tier || await isPaused($))
       return yield* next(e);
     return yield* next({ ...e, model: modelId(tier.model), effort: tier.effort });

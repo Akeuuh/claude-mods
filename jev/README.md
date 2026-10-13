@@ -59,8 +59,8 @@ Les Write/Edit sous un dossier autorisé passent sans appel à Jev, même hors d
 - Sous `minConfidence`, ou si Jev met plus de `timeoutMs` à répondre ou échoue, le palier ne bouge pas (au premier prompt : le modèle de la session).
 - Un prompt de `shortPrompt` caractères ou moins (« ok », « A », « vas-y ») garde le palier sans appeler Jev.
 - `floor` et `ceil` (niveaux 1-5) bornent ce que Jev choisit, pour le main comme pour les subagents.
-- Un subagent lancé sans `model` et dont la définition n'en impose pas est jugé sur sa tâche, sans la retenue du main (il part avec un contexte vide).
-- `/jev-route` : `status`, `pin <niveau|palier>` (ex. `pin sonnet/medium`), `floor <niveau|off>`, `ceil <niveau|off>`, `auto` (repart en auto, efface pin, floor et ceil de la session). Un changement de `/model` coupe le routage jusqu'à `auto`. Pendant la pause de `jev-hud`, c'est le modèle de la session qui part.
+- Un subagent lancé sans `model` et dont la définition n'en impose pas est jugé sur sa tâche, sans la retenue du main (il part avec un contexte vide), et seulement en `auto` : après `off`, `/model` ou `pin`, il garde le modèle hérité.
+- `/jev-route` : `status`, `off` (coupe le routage, sous-agents compris), `pin <niveau|palier>` (ex. `pin sonnet/medium`), `floor <niveau|off>`, `ceil <niveau|off>`, `auto` (repart en auto, efface pin, floor et ceil de la session). Un changement de `/model`, y compris avant le premier prompt, coupe aussi le routage jusqu'à `auto`. Pendant la pause de `jev-hud`, c'est le modèle de la session qui part.
 - `bun scripts/calibrate-route.ts` passe les prompts annotés de `scripts/route-calibration.json` au vrai Jev et donne l'accord exact et à ±1 niveau : à relancer après avoir touché aux descriptions de niveaux.
 
 ## Où mettre la clé

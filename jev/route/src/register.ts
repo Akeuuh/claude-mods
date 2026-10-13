@@ -4,9 +4,9 @@
  *   prompt.submit   one Jev call per typed prompt, the level held across prompts (route.ts says when it moves)
  *   turn.step       every request of the turn goes out on that level's model and effort
  *   agent.spawn     a subagent with no model of its own is judged on its task, without holding
- *   /jev-route      auto, pin, floor, ceil, status
+ *   /jev-route      auto, off, pin, floor, ceil, status
  *
- * A /model change, a pin, or Jev paused leaves the session's own model.
+ * A /model change, off, or Jev paused leaves the session's own model, subagents included; a pin leaves the subagents'.
  */
 import type { EngineInterface, On, SessionMessage } from "claude-code";
 import type { ScoreAnswer } from "../../lib/core/types.ts";
@@ -18,7 +18,7 @@ import {
   type Bounds, type Judgment, type Memory, type RouteConfig, type RouteState, type Tier,
 } from "./route.ts";
 
-type Mode = { kind: "auto" } | { kind: "pin"; level: number } | { kind: "manual"; model: string };
+type Mode = { kind: "auto" } | { kind: "pin"; level: number } | { kind: "manual"; model?: string };
 
 interface Router {
   config: RouteConfig;
@@ -33,7 +33,7 @@ interface Router {
 }
 
 const SOURCE = "route";
-const USAGE = "/jev-route auto | pin <level> | floor <level|off> | ceil <level|off> | status, a level being 1-5 or a tier such as sonnet/medium";
+const USAGE = "/jev-route auto | off | pin <level> | floor <level|off> | ceil <level|off> | status, a level being 1-5 or a tier such as sonnet/medium";
 
 const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 const isRequest = (m: SessionMessage) => m.role === "user" && !m.toolResults?.length && m.text.trim() !== "";
@@ -53,7 +53,7 @@ function tierOf(r: Router): Tier | null {
 }
 
 function describe(r: Router): string {
-  if (r.mode.kind === "manual") return `off, /model ${r.mode.model} · /jev-route auto to resume`;
+  if (r.mode.kind === "manual") return `off${r.mode.model ? `, /model ${r.mode.model}` : ""} · /jev-route auto to resume`;
   const level = levelOf(r);
   const { floor, ceil } = boundsOf(r);
   const limits = [floor && `floor ${floor}`, ceil && `ceil ${ceil}`].filter(Boolean).join(" ");
@@ -65,21 +65,24 @@ function runCommand(r: Router, args: string): string {
   const level = parseLevel(arg, r.config);
   switch (verb) {
     case "status":
-      return `jev-route: ${describe(r)}. Last: ${r.last}.`;
+      return `${describe(r)}. Last: ${r.last}.`;
     case "auto":
       r.mode = { kind: "auto" };
       r.bounds = {};
       r.sessionModel = undefined;
-      return `jev-route: ${describe(r)}`;
+      return describe(r);
+    case "off":
+      r.mode = { kind: "manual" };
+      return describe(r);
     case "pin":
       if (level === null) return USAGE;
       r.mode = { kind: "pin", level };
-      return `jev-route: ${describe(r)}`;
+      return describe(r);
     case "floor":
     case "ceil":
       if (level === null && arg !== "off") return USAGE;
       r.bounds = { ...r.bounds, [verb]: level };
-      return `jev-route: ${describe(r)}`;
+      return describe(r);
     default:
       return USAGE;
   }
@@ -181,7 +184,12 @@ export function register(on: On) {
   };
 
   on("session.start", async ($, e, next) => {
-    await $.command.register({ name: "jev-route", description: "Jev picks the model per request: auto, pin, floor, ceil, status" });
+    await $.command.register({ name: "jev-route", description: "Jev picks the model per request: auto, off, pin, floor, ceil, status" });
+    try {
+      r.sessionModel = await $.session.model();
+    } catch (err) {
+      logFailure($, "jev-route: ", err);
+    }
     return next(e);
   });
 
@@ -201,7 +209,7 @@ export function register(on: On) {
   });
 
   on("agent.spawn", async ($, e, next) => {
-    if (e.model !== undefined || (await isPaused($))) return next(e);
+    if (r.mode.kind !== "auto" || e.model !== undefined || (await isPaused($))) return next(e);
     const judging = judgeSubagent($, r, e.prompt, e.subagentType);
     const started = await next(e);
     if (started.agentId && started.model === e.parentModel) r.subagents.set(started.agentId, announce($, judging, e.subagentType));
@@ -209,7 +217,7 @@ export function register(on: On) {
   });
 
   on("turn.step", async function* ($, e, next) {
-    const tier = e.agentId === undefined ? tierOf(r) : await r.subagents.get(e.agentId);
+    const tier = e.agentId === undefined ? tierOf(r) : r.mode.kind === "auto" ? await r.subagents.get(e.agentId) : null;
     if (!tier || (await isPaused($))) return yield* next(e);
     return yield* next({ ...e, model: modelId(tier.model), effort: tier.effort });
   });
