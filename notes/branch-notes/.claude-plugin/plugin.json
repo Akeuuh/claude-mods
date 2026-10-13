@@ -1,0 +1,19 @@
+{
+  "name": "branch-notes",
+  "version": "0.2.0",
+  "description": "Per-branch notes that ride in the system prompt, a note_add tool the model fills, and /notes to view, add, list and prune them",
+  "author": {
+    "name": "Axel L.",
+    "url": "https://github.com/Akeuuh"
+  },
+  "homepage": "https://github.com/Akeuuh/claude-mods/tree/main/notes/branch-notes",
+  "repository": "https://github.com/Akeuuh/claude-mods",
+  "license": "MIT",
+  "keywords": [
+    "notes",
+    "branch",
+    "memory",
+    "git"
+  ],
+  "types": "./types/index.d.ts"
+}
