@@ -151,6 +151,29 @@ test("a /model change turns routing off until /jev-route auto", async ($, on) =>
   expect(world.sent.map((s) => s.model)).toEqual([SESSION_MODEL, "claude-haiku-5-5"]);
 });
 
+test("a /model change right after /jev-route auto turns routing off", async ($, on) => {
+  const { world } = engine(on, { replies: [level(1)] });
+
+  await $.command.run({ command: "jev-route", args: "auto" } as never);
+  world.model = "claude-sonnet-5-5";
+  await say($, EASY);
+  await step($);
+
+  expect(world.jevCalls).toBe(0);
+  expect(world.sent.map((s) => s.model)).toEqual([SESSION_MODEL]);
+});
+
+test("a /model change after off shows in status", async ($, on) => {
+  const { world } = engine(on);
+
+  await $.command.run({ command: "jev-route", args: "off" } as never);
+  world.model = "claude-sonnet-5-5";
+  await say($, EASY);
+  const status = await $.command.run({ command: "jev-route", args: "status" } as never);
+
+  expect(status).toMatchObject({ text: expect.stringContaining("off, /model claude-sonnet-5-5") });
+});
+
 test("off sends the session's model, for a subagent too", async ($, on) => {
   const { world } = engine(on, { replies: [level(1), level(1)] });
 
