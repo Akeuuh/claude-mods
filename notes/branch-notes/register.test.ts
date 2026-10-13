@@ -1,16 +1,22 @@
 import { expect, mock, test } from "claude-code/testing";
 import type { On } from "claude-code";
 
+import { repoOf } from "./src/notes.ts";
+
 const HOME = "/home/me";
-const FILE = `${HOME}/.claude/branch-notes/shop/feat%2Fcart.md`;
+const COMMON_DIR = "/work/shop/.git";
+const REPO = repoOf(COMMON_DIR).name;
+const DIR = `${HOME}/.claude/branch-notes/${repoOf(COMMON_DIR).key}`;
+const FILE = `${DIR}/feat%2Fcart.md`;
 const NOTE_ADD = "mcp__branch-notes__note_add";
+const COMPOSE = { model: "m", promptModel: "m", surfaces: [], tools: [], outputStyle: null, traits: [] };
 
 const ran = (stdout: string, exitCode = 0) => ({ value: { exitCode, stdout, stderr: "", isStdoutTruncated: false, isStderrTruncated: false } });
 
-type Git = { branch: string; refs: string; rmExit: number; lockedFor: number; lockMtime: number; rmdirs: string[] };
+type Git = { branch: string; commonDir: string; refs: string; rmExit: number; lockedFor: number; lockMtime: number; rmdirs: string[] };
 
 function world(on: On, files: Record<string, string>, git: Partial<Git> = {}) {
-  const state: Git = { branch: "feat/cart", refs: "refs/heads/feat/cart\nrefs/remotes/origin/main\n", rmExit: 0, lockedFor: 0, lockMtime: 0, rmdirs: [], ...git };
+  const state: Git = { branch: "feat/cart", commonDir: COMMON_DIR, refs: "refs/heads/feat/cart\nrefs/remotes/origin/main\n", rmExit: 0, lockedFor: 0, lockMtime: 0, rmdirs: [], ...git };
   const removed: string[] = [];
   mock.env(on, { HOME });
   on("session.cwd", () => ({ value: "/work/shop" }));
@@ -34,7 +40,7 @@ function world(on: On, files: Record<string, string>, git: Partial<Git> = {}) {
       return ran("");
     }
     if (args[0] === "branch") return ran(`${state.branch}\n`);
-    if (args[0] === "rev-parse") return ran("/work/shop/.git\n");
+    if (args[0] === "rev-parse") return ran(`${state.commonDir}\n`);
     if (args[0] === "for-each-ref") return ran(state.refs);
     return ran("", 1);
   });
@@ -64,7 +70,7 @@ test("note_add appends under its heading and the notes ride in the system prompt
 
   await $.session.start({ cwd: "/work/shop", surface: null, isInteractive: false });
   const added = await $.tool.call({ tool: NOTE_ADD, section: "decisions", text: "Cart lives in the URL" } as never);
-  const composed = await $.prompt.compose({ model: "m", promptModel: "m", surfaces: [], tools: [], outputStyle: null, traits: [] });
+  const composed = await $.prompt.compose(COMPOSE);
 
   expect(added.result).toBe('Noted under "Décisions" for feat/cart.');
   expect(files[FILE]).toContain("## Décisions\n- Cart lives in the URL\n");
@@ -83,20 +89,21 @@ test("replace swaps the whole state section", async ($, on) => {
   expect(files[FILE]).not.toContain("Wire the API");
 });
 
-test("a branch without notes gets the template on session start", async ($, on) => {
+test("a branch without notes gets the template on session start, under the lock", async ($, on) => {
   const files: Record<string, string> = {};
-  world(on, files);
+  const { state } = world(on, files);
 
   await $.session.start({ cwd: "/work/shop", surface: null, isInteractive: false });
 
   expect(files[FILE]).toContain("# Notes — shop @ feat/cart");
   expect(files[FILE]).toContain("## État / prochaines étapes");
+  expect(state.rmdirs).toEqual([`${FILE}.lock`]);
 });
 
 test("/notes prune lists notes of deleted branches and deletes them only with --yes", async ($, on) => {
-  const old = `${HOME}/.claude/branch-notes/shop/old-idea.md`;
+  const old = `${DIR}/old-idea.md`;
   const files = { [FILE]: NOTES, [old]: NOTES };
-  const { removed } = world(on, files);
+  const { removed, state } = world(on, files);
 
   const listed = await $.command.run({ command: "notes", args: "prune" });
   expect(listed.text).toContain("old-idea");
@@ -105,6 +112,7 @@ test("/notes prune lists notes of deleted branches and deletes them only with --
 
   await $.command.run({ command: "notes", args: "prune --yes" });
   expect(removed).toEqual([old]);
+  expect(state.rmdirs).toEqual([`${old}.lock`]);
   expect(FILE in files).toBe(true);
 });
 
@@ -136,17 +144,41 @@ test("/notes all shows the goal and the state of each branch", async ($, on) => 
 
   const answer = await $.command.run({ command: "notes", args: "all" });
 
-  expect(answer.text).toBe("shop\n* feat/cart  1970-01-01\n    objectif: Ship the cart\n    état: Wire the API");
+  expect(answer.text).toBe(`${REPO}\n* feat/cart  1970-01-01\n    objectif: Ship the cart\n    état: Wire the API`);
+});
+
+test("/notes all lists a branch that has no notes yet, and never a long-lived one", async ($, on) => {
+  const files = { [FILE]: NOTES };
+  world(on, files, { refs: "refs/heads/feat/cart\nrefs/heads/feat/fresh\nrefs/heads/main\n" });
+
+  const answer = await $.command.run({ command: "notes", args: "all" });
+
+  expect(answer.text).toContain("  feat/fresh  no notes");
+  expect(answer.text).not.toContain("main");
+});
+
+test("two repos with the same name keep separate notes", async ($, on) => {
+  const elsewhere = "/elsewhere/shop/.git";
+  const other = `${HOME}/.claude/branch-notes/${repoOf(elsewhere).key}/feat%2Fcart.md`;
+  const files = { [FILE]: NOTES, [other]: NOTES.replace("Ship the cart", "The other shop") };
+  const { state } = world(on, files);
+
+  const here = await $.command.run({ command: "notes", args: "" });
+  state.commonDir = elsewhere;
+  const there = await $.command.run({ command: "notes", args: "" });
+
+  expect(here.text).toContain("Ship the cart");
+  expect(there.text).toContain("The other shop");
 });
 
 test("on main the notes stay out of the prompt and note_add refuses, but /notes all and prune still work", async ($, on) => {
-  const old = `${HOME}/.claude/branch-notes/shop/old-idea.md`;
+  const old = `${DIR}/old-idea.md`;
   const files = { [FILE]: NOTES, [old]: NOTES };
   const { removed } = world(on, files, { branch: "main" });
   on("prompt.compose", () => ({ sections: [] }));
 
   await $.session.start({ cwd: "/work/shop", surface: null, isInteractive: false });
-  const composed = await $.prompt.compose({ model: "m", promptModel: "m", surfaces: [], tools: [], outputStyle: null, traits: [] });
+  const composed = await $.prompt.compose(COMPOSE);
   const added = await $.tool.call({ tool: NOTE_ADD, section: "decisions", text: "x" } as never);
   const listed = await $.command.run({ command: "notes", args: "all" });
   await $.command.run({ command: "notes", args: "prune --yes" });
@@ -158,12 +190,12 @@ test("on main the notes stay out of the prompt and note_add refuses, but /notes 
 });
 
 test("a git checkout in Bash moves the notes to the new branch", async ($, on) => {
-  const other = `${HOME}/.claude/branch-notes/shop/feat%2Fother.md`;
+  const other = `${DIR}/feat%2Fother.md`;
   const files = { [FILE]: NOTES, [other]: NOTES.replace("Ship the cart", "Ship the other thing") };
   const { state } = world(on, files);
   on("prompt.compose", () => ({ sections: [] }));
   on("tool.call", () => ({ result: "ok" }));
-  const compose = () => $.prompt.compose({ model: "m", promptModel: "m", surfaces: [], tools: [], outputStyle: null, traits: [] });
+  const compose = () => $.prompt.compose(COMPOSE);
 
   await $.session.start({ cwd: "/work/shop", surface: null, isInteractive: false });
   expect((await compose()).sections.at(-1)?.text).toContain("Ship the cart");
@@ -174,8 +206,22 @@ test("a git checkout in Bash moves the notes to the new branch", async ($, on) =
   expect((await compose()).sections.at(-1)?.text).toContain("Ship the other thing");
 });
 
+test("a checkout run elsewhere with -C leaves the notes of the session branch alone", async ($, on) => {
+  const files = { [FILE]: NOTES };
+  const { state } = world(on, files);
+  on("prompt.compose", () => ({ sections: [] }));
+  on("tool.call", () => ({ result: "ok" }));
+
+  await $.session.start({ cwd: "/work/shop", surface: null, isInteractive: false });
+  state.branch = "feat/other";
+  await $.tool.call({ tool: "Bash", command: "git -C /other/repo checkout feat/other" });
+  const composed = await $.prompt.compose(COMPOSE);
+
+  expect(composed.sections.at(-1)?.text).toContain("feat/cart");
+});
+
 test("/notes prune --yes reports the files it could not delete", async ($, on) => {
-  const old = `${HOME}/.claude/branch-notes/shop/old-idea.md`;
+  const old = `${DIR}/old-idea.md`;
   const files = { [FILE]: NOTES, [old]: NOTES };
   world(on, files, { rmExit: 1 });
 
@@ -184,10 +230,8 @@ test("/notes prune --yes reports the files it could not delete", async ($, on) =
   expect(answer.text).toBe("Deleted 0, could not delete:\nold-idea");
 });
 
-const COMPOSE = { model: "m", promptModel: "m", surfaces: [], tools: [], outputStyle: null, traits: [] };
-
 test("feat/cart and feat-cart keep separate notes", async ($, on) => {
-  const dash = `${HOME}/.claude/branch-notes/shop/feat-cart.md`;
+  const dash = `${DIR}/feat-cart.md`;
   const files = { [FILE]: NOTES, [dash]: NOTES.replace("Ship the cart", "Dashed branch") };
   const { state } = world(on, files);
 
@@ -234,7 +278,7 @@ test("note_add takes over a lock left behind by a dead session", async ($, on) =
 
   const added = await $.tool.call({ tool: NOTE_ADD, section: "decisions", text: "Took over" } as never);
 
-  expect(added.result).toBeDefined();
+  expect(added.result).toBe('Noted under "Décisions" for feat/cart.');
   expect(files[FILE]).toContain("- Took over");
   expect(state.rmdirs).toEqual([`${FILE}.lock`, `${FILE}.lock`]);
 });
