@@ -6,7 +6,7 @@
  *   agent.spawn     a subagent with no model of its own is judged on its task, without holding
  *   /jev-route      auto, off, pin, floor, ceil, status
  *
- * A /model change, off, or Jev paused leaves the session's own model, subagents included; a pin leaves the subagents'.
+ * A /model change, off, or Jev paused leaves the session's own model, subagents included; a pin leaves subagents on the session's model.
  */
 import type { EngineInterface, On, SessionMessage } from "claude-code";
 import type { ScoreAnswer } from "../../lib/core/types.ts";
@@ -60,7 +60,7 @@ function describe(r: Router): string {
   return `${level === null ? "session model" : `${level} ${tierName(r.config.tiers[level - 1])}`} · ${r.mode.kind}${limits ? ` · ${limits}` : ""}`;
 }
 
-function runCommand(r: Router, args: string): string {
+function runCommand(r: Router, args: string, sessionModel: string): string {
   const [verb = "status", arg = ""] = args.trim().split(/\s+/).filter(Boolean);
   const level = parseLevel(arg, r.config);
   switch (verb) {
@@ -69,10 +69,11 @@ function runCommand(r: Router, args: string): string {
     case "auto":
       r.mode = { kind: "auto" };
       r.bounds = {};
-      r.sessionModel = undefined;
+      r.sessionModel = sessionModel;
       return describe(r);
     case "off":
       r.mode = { kind: "manual" };
+      r.sessionModel = sessionModel;
       return describe(r);
     case "pin":
       if (level === null) return USAGE;
@@ -128,7 +129,7 @@ async function judge($: EngineInterface, source: string, state: object, timeoutM
 async function routePrompt($: EngineInterface, r: Router, text: string): Promise<void> {
   r.config = await loadConfig($);
   const model = await $.session.model();
-  if (r.sessionModel !== undefined && model !== r.sessionModel && r.mode.kind !== "manual") {
+  if (r.sessionModel !== undefined && model !== r.sessionModel) {
     r.mode = { kind: "manual", model };
     verdict($, SOURCE, `route off · /model ${model}`, "info");
   }
@@ -195,7 +196,7 @@ export function register(on: On) {
 
   on("command.run", { command: "jev-route" }, async ($, e) => {
     r.config = await loadConfig($);
-    const text = runCommand(r, e.args);
+    const text = runCommand(r, e.args, await $.session.model());
     show($, r);
     return { text };
   });

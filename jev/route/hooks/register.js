@@ -335,7 +335,7 @@ function describe(r) {
   const limits = [floor && `floor ${floor}`, ceil && `ceil ${ceil}`].filter(Boolean).join(" ");
   return `${level === null ? "session model" : `${level} ${tierName(r.config.tiers[level - 1])}`} · ${r.mode.kind}${limits ? ` · ${limits}` : ""}`;
 }
-function runCommand(r, args) {
+function runCommand(r, args, sessionModel) {
   const [verb = "status", arg = ""] = args.trim().split(/\s+/).filter(Boolean);
   const level = parseLevel(arg, r.config);
   switch (verb) {
@@ -344,10 +344,11 @@ function runCommand(r, args) {
     case "auto":
       r.mode = { kind: "auto" };
       r.bounds = {};
-      r.sessionModel = undefined;
+      r.sessionModel = sessionModel;
       return describe(r);
     case "off":
       r.mode = { kind: "manual" };
+      r.sessionModel = sessionModel;
       return describe(r);
     case "pin":
       if (level === null)
@@ -398,7 +399,7 @@ async function judge($, source, state, timeoutMs) {
 async function routePrompt($, r, text) {
   r.config = await loadConfig($);
   const model = await $.session.model();
-  if (r.sessionModel !== undefined && model !== r.sessionModel && r.mode.kind !== "manual") {
+  if (r.sessionModel !== undefined && model !== r.sessionModel) {
     r.mode = { kind: "manual", model };
     verdict($, SOURCE, `route off · /model ${model}`, "info");
   }
@@ -462,7 +463,7 @@ function register(on) {
   });
   on("command.run", { command: "jev-route" }, async ($, e) => {
     r.config = await loadConfig($);
-    const text = runCommand(r, e.args);
+    const text = runCommand(r, e.args, await $.session.model());
     show($, r);
     return { text };
   });
