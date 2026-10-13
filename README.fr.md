@@ -82,7 +82,7 @@ Les extensions pi de [ten-levels-of-jev](https://github.com/disler/ten-levels-of
 
 | Mod | Ce qu'il fait |
 |---|---|
-| `jev-guard` | Jev bloque les `Bash` irréversibles ou destructeurs, les `Write`/`Edit` hors du repo ou contenant un secret, et marque les résultats de `Read`/`Bash` qui contiennent des instructions |
+| `jev-guard` | Jev bloque les `Bash` irréversibles ou destructeurs, les `Write`/`Edit` hors du repo ou contenant un secret, et marque les résultats de `Read`/`Bash` qui contiennent des instructions. Une commande bloquée est retenue, pas perdue : Jev demande à la personne, en nommant la commande et ce qu'il lui reproche, **Run anyway** la lance quand même, **Block** maintient le refus. L'agent ne voit que le résultat de la commande ou le refus, jamais la question ; sans personne à qui demander (un run `-p`) ou si la question est écartée, le blocage tient |
 | `jev-compact` | À chaque fin de tour, Jev juge s'il faut compacter ; outils `should_i_compact` et `compact_now` ; à la compaction, Jev choisit où commence le travail en cours |
 | `jev-route` | Jev note la complexité de chaque prompt (5 niveaux) et choisit le modèle et l'effort qui le traitent ; un subagent sans modèle à lui est jugé sur sa tâche. Ne redescend que si le contexte est petit ou après deux prompts plus simples, pour épargner le cache. `/jev-route auto\|off\|pin\|floor\|ceil\|status` ; `off` ou un `/model` le coupe jusqu'à `auto`, sous-agents compris. Paliers dans `~/.config/claude-mods/jev.json` (voir [jev/README.md](jev/README.md)) |
 | `ask-jev-file` | `ask_jev_file_bool`, `_choice`, `_score` : une question typée sur un fichier sans le lire dans le contexte |

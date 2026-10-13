@@ -48,7 +48,7 @@ The pi extensions from [ten-levels-of-jev](https://github.com/disler/ten-levels-
 
 | Mod | What it does |
 |---|---|
-| `jev-guard` | Jev blocks irreversible or destructive `Bash`, `Write`/`Edit` outside the repo or containing a secret, and flags `Read`/`Bash` results that contain instructions |
+| `jev-guard` | Jev blocks irreversible or destructive `Bash`, `Write`/`Edit` outside the repo or containing a secret, and flags `Read`/`Bash` results that contain instructions. A blocked command is held, not lost: Jev asks the person, naming the command and why it stopped it, and **Run anyway** runs it, **Block** keeps the deny. The agent only ever sees the command's result or the deny, never the ask; with no one to ask (a `-p` run) or the ask dismissed, the block stands |
 | `jev-compact` | At the end of every turn, Jev judges whether to compact; `should_i_compact` and `compact_now` tools; on compaction, Jev picks where the live work starts |
 | `jev-route` | Jev scores how demanding each prompt is (5 levels) and picks the model and effort it goes out on; a subagent with no model of its own is judged on its task. Moves down only once the context is small or after two easier prompts, to spare the prompt cache. `/jev-route auto\|off\|pin\|floor\|ceil\|status`; `off` or a `/model` change turns it off until `auto`, subagents included. Tiers in `~/.config/claude-mods/jev.json` (see [jev/README.md](jev/README.md)) |
 | `ask-jev-file` | `ask_jev_file_bool`, `_choice`, `_score`: a typed question about a file without reading it into context |

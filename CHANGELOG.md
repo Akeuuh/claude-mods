@@ -2,6 +2,12 @@
 
 All mods share one version, tagged `vX.Y.Z` on `main`. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- `jev-guard`: a command the bash gate blocks is held instead of denied outright. Jev asks the person, naming the command and the reason: **Run anyway** runs it, **Block** keeps the deny; with no one to ask (a `-p` run) or the ask dismissed, the block stands. A command that names the allow list file is held the same way.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added

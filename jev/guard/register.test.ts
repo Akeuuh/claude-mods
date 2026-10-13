@@ -1,4 +1,5 @@
 import { expect, mock, test } from "claude-code/testing";
+import type { On } from "claude-code";
 
 type Answers = Record<string, unknown>;
 
@@ -41,12 +42,51 @@ function jevAnswers(on: Parameters<Parameters<typeof test>[1]>[1], replies: Answ
 
 const EFFECTS = ["read_only", "reversible", "irreversible"];
 
-test("an irreversible command is denied before it runs", async ($, on) => {
-  jevAnswers(on, [{ effect: choice("irreversible", EFFECTS, 0.9), destructive_intent: { type: "noul", noul: 0.9 } }]);
+const IRREVERSIBLE = { effect: choice("irreversible", EFFECTS, 0.9), destructive_intent: { type: "noul", noul: 0.9 } };
+const CLEAN_RESULT = { injection: { type: "noul", noul: 0.1 } };
+
+/** The person at the dialog the gate holds the command behind; no `pick`, nobody answered it. */
+function answersTheAsk(on: On, pick?: string) {
+  const asked: string[] = [];
+  on("tool.call", { tool: "AskUserQuestion" }, ($, e) => {
+    const { question } = e.questions[0];
+    asked.push(question);
+    return { result: { answers: pick === undefined ? {} : { [question]: pick } }, text: pick ?? "" };
+  });
+  return asked;
+}
+
+test("with no one to answer the ask, an irreversible command is denied before it runs", async ($, on) => {
+  jevAnswers(on, [IRREVERSIBLE]);
+  answersTheAsk(on);
   on("tool.call", () => { throw new Error("the command ran"); });
 
   const ran = await $.tool.call({ tool: "Bash", command: "rm -rf build" });
 
+  expect(ran.deny).toContain("jev-guard blocked this command: irreversible (0.90)");
+});
+
+test("a denied command runs after Run anyway, and the verdict says overridden", async ($, on) => {
+  const logged = jevAnswers(on, [IRREVERSIBLE, CLEAN_RESULT]);
+  answersTheAsk(on, "Run anyway");
+  on("tool.call", () => ({ result: "removed", text: "removed" }));
+
+  const ran = await $.tool.call({ tool: "Bash", command: "rm -rf build" });
+
+  expect(ran.deny).toBeUndefined();
+  expect(ran.text).toBe("removed");
+  expect(logged).toContainEqual(expect.stringContaining('"text":"Bash overridden · irreversible (0.90)","tone":"warn"'));
+});
+
+test("the ask names the command and why Jev stopped it, and Block keeps the deny", async ($, on) => {
+  jevAnswers(on, [IRREVERSIBLE]);
+  const asked = answersTheAsk(on, "Block");
+  on("tool.call", () => { throw new Error("the command ran"); });
+
+  const ran = await $.tool.call({ tool: "Bash", command: "rm -rf build" });
+
+  expect(asked).toEqual([expect.stringContaining("rm -rf build")]);
+  expect(asked[0]).toContain("nothing would restore what this removes");
   expect(ran.deny).toContain("jev-guard blocked this command: irreversible (0.90)");
 });
 
@@ -145,13 +185,25 @@ test("a link out of an allowed directory is denied as outside the repo", async (
   expect(ran.deny).toContain("outside the repo: /etc/hosts");
 });
 
-test("a command naming the allow list file is denied without asking Jev", async ($, on) => {
+test("a command naming the allow list file is denied when the person keeps the block", async ($, on) => {
   jevAnswers(on, []);
+  answersTheAsk(on, "Block");
   on("tool.call", () => { throw new Error("the command ran"); });
 
   const ran = await $.tool.call({ tool: "Bash", command: `echo '{"guard":{"allowPaths":["/"]}}' > ~/.config/claude-mods/jev.json` });
 
   expect(ran.deny).toContain("names the allow list file");
+});
+
+test("a command naming the allow list file runs after Run anyway, without going to Jev's bash gate", async ($, on) => {
+  const logged = jevAnswers(on, [CLEAN_RESULT]);
+  answersTheAsk(on, "Run anyway");
+  on("tool.call", () => ({ result: "written", text: "written" }));
+
+  const ran = await $.tool.call({ tool: "Bash", command: `echo '{"guard":{"allowPaths":["/"]}}' > ~/.config/claude-mods/jev.json` });
+
+  expect(ran.deny).toBeUndefined();
+  expect(logged).toContainEqual(expect.stringContaining('"text":"Bash overridden · allow list file","tone":"warn"'));
 });
 
 test("while paused, a command runs without asking Jev and without an error line", async ($, on) => {
