@@ -36,6 +36,10 @@ Le modèle écrit via l'outil `note_add` au fil de la session ; `/notes add <sec
 
 Les sections non vides partent dans le system prompt à chaque tour, en `scope: "session"` : elles survivent à un compactage. Une section de plus de 25 lignes est tronquée au passage — 10 premières, 15 dernières, et une ligne `… N more line(s) in the notes file` entre les deux. Le fichier, lui, garde tout. C'est une raison de plus de remplacer `etat` plutôt que de l'empiler.
 
+## Le panneau
+
+`/notes pane` ouvre un panneau live à côté du transcript : la branche courante, puis les sections non vides. Il suit les écritures de `note_add` et les changements de branche sans qu'on ait à le rouvrir, et il coupe ce qui dépasse sa hauteur — c'est une vue, pas le fichier.
+
 ## Écriture concurrente
 
 Plusieurs sessions (worktrees, agents) peuvent viser le même fichier. Chaque écriture prend un verrou `<fichier>.md.lock` (un `mkdir`, atomique) : 50 essais espacés de 100 ms, soit 5 s d'attente, et un verrou de plus de 10 s est considéré comme mort et retiré. Si le verrou ne vient pas, l'écriture est refusée avec `The notes file is busy (another session is writing it). Try again.` — rien n'est perdu, il suffit de refaire l'appel.
