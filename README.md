@@ -68,6 +68,8 @@ Each Jev decision shows as a greyed line in the transcript, invisible to the mod
 
 `/notes` shows the notes of the branch, `/notes all` lists those of the repo, `/notes pane` opens a live pane, `/notes add <section> <text>` appends (`objectif`, `decisions`, `contraintes`, `etat`), `/notes edit` opens the file, `/notes prune` lists the notes of branches that no longer exist and `/notes prune --yes` deletes them.
 
+Where the notes live on disk, the sections, the write lock and pruning: see [notes/README.md](notes/README.md) (in French).
+
 ## Layout
 
 ```
