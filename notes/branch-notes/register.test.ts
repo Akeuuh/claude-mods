@@ -134,8 +134,9 @@ test("the pane draws the filled sections", async ($, on) => {
   await $.command.run({ command: "notes", args: "pane" });
   const ui = await $.ui.mount({ plugin: "branch-notes", surface: "terminal", component: "Pane", requestId: "branch-notes", props: {} } as never);
 
-  expect(await ui.find({ type: "Text", text: "Objectif" })).toBeDefined();
-  expect(await ui.find({ type: "Text", text: "- Wire the API" })).toBeDefined();
+  expect(await ui.find({ type: "Text", text: "\u25ce Objectif" })).toBeDefined();
+  expect(await ui.find({ type: "Markdown", text: "- Ship the cart" })).toBeDefined();
+  expect(await ui.find({ type: "Markdown", text: "- Wire the API" })).toBeDefined();
 });
 
 test("/notes all shows the goal and the state of each branch", async ($, on) => {
