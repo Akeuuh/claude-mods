@@ -663,9 +663,19 @@ async function levelConfig($, fallback) {
 }
 
 // jev/guard/src/register.ts
+var TONE = { ok: "ok", overridden: "warn", blocked: "block" };
+var RUN_ANYWAY = "Run anyway";
 var label = (reason) => reason.split(":")[0];
 async function gatesOn($) {
   return (await levelConfig($, { gates: ["A", "B", "C"] })).gates;
+}
+async function askToRun($, command, reason) {
+  try {
+    const chosen = await $.ui.ask(`jev-guard stopped \`${command}\` · ${reason}. Run it anyway?`, { header: "jev-guard", options: [RUN_ANYWAY, "Block"] });
+    return chosen === RUN_ANYWAY;
+  } catch {
+    return false;
+  }
 }
 async function screen($, tool, ran) {
   if (ran.deny !== undefined || !(await gatesOn($)).includes("C"))
@@ -732,15 +742,22 @@ async function gateWrite2($, tool, path, content) {
 }
 function register(on) {
   on("tool.call", { tool: "Bash" }, async ($, e, next) => {
-    if ((await gatesOn($)).includes("B") && mentionsAllowList(e.command)) {
-      verdict($, "tool.call Bash", "Bash blocked · allow list file", "block");
-      return { deny: `jev-guard blocked this command: it names the allow list file ~/${ALLOW_LIST_FILE}, which only the user edits. ${BLOCK_NOTICE}` };
+    const gates = await gatesOn($);
+    let ranAnyway = false;
+    if (gates.includes("B") && mentionsAllowList(e.command)) {
+      const reason = `it names the allow list file ~/${ALLOW_LIST_FILE}, which only the user edits`;
+      ranAnyway = await askToRun($, e.command, reason);
+      const outcome = ranAnyway ? "overridden" : "blocked";
+      verdict($, "tool.call Bash", `Bash ${outcome} · allow list file`, TONE[outcome]);
+      if (!ranAnyway)
+        return { deny: `jev-guard blocked this command: ${reason}. ${BLOCK_NOTICE}` };
     }
-    if ((await gatesOn($)).includes("A")) {
+    if (!ranAnyway && gates.includes("A")) {
       try {
         const d = await gateBashCommand(e.command, await $.session.cwd(), (s, q) => decide($, "tool.call Bash", s, q));
-        verdict($, "tool.call Bash", `Bash ${d.block ? "blocked" : "ok"} · ${label(d.reason)}`, d.block ? "block" : "ok");
-        if (d.block)
+        const outcome = !d.block ? "ok" : await askToRun($, e.command, d.reason) ? "overridden" : "blocked";
+        verdict($, "tool.call Bash", `Bash ${outcome} · ${label(d.reason)}`, TONE[outcome]);
+        if (outcome === "blocked")
           return { deny: `jev-guard blocked this command: ${d.reason}. ${BLOCK_NOTICE}` };
       } catch (err) {
         logFailure($, "jev-guard: bash gate failed: ", err);
