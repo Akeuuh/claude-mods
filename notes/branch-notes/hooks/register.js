@@ -15,10 +15,18 @@ var sectionOf = (name) => {
   const wanted = name.trim().toLowerCase();
   return SECTIONS.find((s) => s.aliases.some((alias) => alias === wanted));
 };
+var fnv1a = (text) => {
+  let hash = 2166136261;
+  for (let i = 0;i < text.length; i++)
+    hash = Math.imul(hash ^ text.charCodeAt(i), 16777619);
+  return (hash >>> 0).toString(16).padStart(8, "0");
+};
 var repoOf = (commonDir) => {
-  const parts = commonDir.trim().split("/");
+  const path = commonDir.trim().replace(/\/+$/, "");
+  const parts = path.split("/");
   const last = parts.pop() ?? "";
-  return last === ".git" ? parts.pop() ?? "" : last.replace(/\.git$/, "");
+  const name = last === ".git" ? parts.pop() ?? "" : last.replace(/\.git$/, "");
+  return { name, key: `${name}-${fnv1a(path)}` };
 };
 var template = (repo, branch, date) => [`# Notes — ${repo} @ ${branch}`, `Créé : ${date}`, ...SECTIONS.map((s) => `## ${s.heading}`)].join(`
 
@@ -75,14 +83,17 @@ ${clipLines(b.body).join(`
 `)}`).join(`
 
 `);
-var firstEntry = (text, key) => (bodyOf(text, SECTIONS.find((s) => s.key === key))[0] ?? "").replace(/^-\s*/, "");
+var firstEntry = (text, key) => {
+  const section = SECTIONS.find((s) => s.key === key);
+  return section === undefined ? "" : (bodyOf(text, section)[0] ?? "").replace(/^-\s*/, "");
+};
 var branchSlugsOf = (refs) => new Set(refs.split(`
 `).map((ref) => ref.match(/^refs\/(?:heads|remotes\/[^/]+)\/(.+)$/)?.[1]).filter((name) => name !== undefined && name !== "HEAD").map(slugOf));
 
 // notes/branch-notes/src/register.tsx
 var PANE = "branch-notes";
 var NOTE_ADD = "mcp__branch-notes__note_add";
-var BRANCH_CHANGE = /\bgit\s+(?:-C\s+\S+\s+)?(?:checkout|switch|worktree)\b/;
+var BRANCH_CHANGE = /\bgit\s+(?:-c\s+\S+\s+)*(?:checkout|switch|worktree)\b/;
 var USAGE = [
   "/notes                          show the notes of this branch",
   "/notes all                      list the notes of every branch of this repo",
@@ -93,7 +104,7 @@ var USAGE = [
 ].join(`
 `);
 var view = atom({ plugin: "branch-notes", key: "view" }, null);
-var failure = (message) => ({ deny: message });
+var fail = (message) => ({ deny: message });
 async function git($, ...argv) {
   const cwd = await $.session.cwd();
   const ran = await $.process.run(["git", ...argv], { cwd }).catch(() => {
@@ -106,8 +117,8 @@ async function inRepo($) {
   const home = await $.env.get("HOME");
   if (!common || !home)
     return;
-  const repo = repoOf(common);
-  return { repo, dir: `${home}/.claude/branch-notes/${repo}`, branch: await git($, "branch", "--show-current") || undefined };
+  const { name, key } = repoOf(common);
+  return { repo: name, dir: `${home}/.claude/branch-notes/${key}`, branch: await git($, "branch", "--show-current") || undefined };
 }
 async function locate($) {
   const found = await inRepo($);
@@ -115,12 +126,17 @@ async function locate($) {
     return;
   return { ...found, branch: found.branch, file: `${found.dir}/${slugOf(found.branch)}.md` };
 }
+async function textOf($, where) {
+  if (await $.fs.exists(where.file))
+    return $.fs.read(where.file);
+  return template(where.repo, where.branch, new Date().toISOString().slice(0, 10));
+}
+var unchanged = (text) => text;
 async function load($, where) {
   if (await $.fs.exists(where.file))
     return $.fs.read(where.file);
-  const created = template(where.repo, where.branch, new Date().toISOString().slice(0, 10));
-  await $.fs.write(where.file, created);
-  return created;
+  await writeUnderLock($, where, unchanged);
+  return textOf($, where);
 }
 async function refresh($) {
   const where = await locate($);
@@ -155,33 +171,42 @@ async function acquire($, lock) {
   }
   return false;
 }
-async function record($, section, entry, replace) {
-  const where = await locate($);
-  if (!where)
-    return { reason: NOT_TRACKED };
+async function writeUnderLock($, where, change) {
   const lock = `${where.file}.lock`;
   await $.process.run(["mkdir", "-p", where.dir]);
   if (!await acquire($, lock))
-    return { reason: BUSY };
+    return false;
   try {
-    await $.fs.write(where.file, withEntry(await load($, where), section, entry, replace));
+    await $.fs.write(where.file, change(await textOf($, where)));
   } finally {
     await $.process.run(["rmdir", lock]).catch(() => {
       return;
     });
   }
+  return true;
+}
+async function record($, section, entry, replace) {
+  const where = await locate($);
+  if (!where)
+    return { reason: NOT_TRACKED };
+  const written = await writeUnderLock($, where, (text) => withEntry(text, section, entry, replace));
+  if (!written)
+    return { reason: BUSY };
   await refresh($);
   return { where };
 }
 async function noteFiles($, dir) {
   const entries = await $.fs.list(dir).catch(() => []);
-  return entries.filter((f) => f.kind === "file" && f.name.endsWith(".md")).map((f) => ({ ...f, slug: f.name.slice(0, -3), path: `${dir}/${f.name}` }));
+  return entries.filter((f) => f.kind === "file" && f.name.endsWith(".md")).map((f) => ({ slug: f.name.slice(0, -3), path: `${dir}/${f.name}`, mtimeMs: f.mtimeMs }));
+}
+async function aliveSlugs($) {
+  const refs = await git($, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes");
+  return refs === undefined ? undefined : branchSlugsOf(refs);
 }
 async function orphans($, found) {
-  const refs = await git($, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes");
-  if (refs === undefined)
+  const alive = await aliveSlugs($);
+  if (!alive)
     return [];
-  const alive = branchSlugsOf(refs);
   return (await noteFiles($, found.dir)).filter((f) => !alive.has(f.slug));
 }
 var NOT_TRACKED = "No notes here: not a git branch, or a long-lived one (main, master, develop).";
@@ -194,23 +219,32 @@ async function showNotes($) {
 
 ${located.text}`;
 }
+async function summarise($, found, slug, file, isGone) {
+  const mark = slug === (found.branch && slugOf(found.branch)) ? "*" : " ";
+  const when = file ? new Date(file.mtimeMs).toISOString().slice(0, 10) : "no notes";
+  const head = `${mark} ${branchOf(slug)}${isGone ? " (branch gone)" : ""}  ${when}`;
+  const text = file && await $.fs.read(file.path).catch(() => {
+    return;
+  });
+  if (!text)
+    return head;
+  const details = [
+    { label: "objectif", value: firstEntry(text, "objectif") },
+    { label: "état", value: firstEntry(text, "etat") }
+  ].filter((d) => d.value !== "");
+  return [head, ...details.map((d) => `    ${d.label}: ${d.value}`)].join(`
+`);
+}
 async function listNotes($) {
   const found = await inRepo($);
   if (!found)
     return NOT_A_REPO;
-  const dead = new Set((await orphans($, found)).map((f) => f.slug));
-  const files = (await noteFiles($, found.dir)).sort((a, b) => b.mtimeMs - a.mtimeMs);
-  if (files.length === 0)
+  const alive = await aliveSlugs($);
+  const known = new Map((await noteFiles($, found.dir)).map((f) => [f.slug, f]));
+  const slugs = [...new Set([...known.keys(), ...alive ?? []])].filter((slug) => known.has(slug) || !LONG_LIVED.has(branchOf(slug))).sort((a, b) => (known.get(b)?.mtimeMs ?? -1) - (known.get(a)?.mtimeMs ?? -1));
+  if (slugs.length === 0)
     return `No notes yet for ${found.repo}.`;
-  const blocks = await Promise.all(files.map(async (f) => {
-    const text = await $.fs.read(f.path);
-    const mark = f.slug === (found.branch && slugOf(found.branch)) ? "*" : " ";
-    const gone = dead.has(f.slug) ? " (branch gone)" : "";
-    const head = `${mark} ${branchOf(f.slug)}${gone}  ${new Date(f.mtimeMs).toISOString().slice(0, 10)}`;
-    const details = [`objectif: ${firstEntry(text, "objectif")}`, `état: ${firstEntry(text, "etat")}`].filter((line) => !line.endsWith(": "));
-    return [head, ...details.map((line) => `    ${line}`)].join(`
-`);
-  }));
+  const blocks = await Promise.all(slugs.map((slug) => summarise($, found, slug, known.get(slug), known.has(slug) && alive !== undefined && !alive.has(slug))));
   return `${found.repo}
 ${blocks.join(`
 `)}`;
@@ -225,16 +259,17 @@ async function addNote($, args) {
   return "reason" in recorded ? recorded.reason : `Added to ${section.heading} (${recorded.where.branch}).`;
 }
 async function editNotes($) {
-  const located = await refresh($);
-  if (!located)
+  const where = await locate($);
+  if (!where)
     return NOT_TRACKED;
+  await load($, where);
   const isMac = (await $.process.run(["uname", "-s"]).catch(() => {
     return;
   }))?.stdout.trim() === "Darwin";
-  const opened = await $.process.run(isMac ? ["open", "-t", located.where.file] : ["xdg-open", located.where.file]).catch(() => {
+  const opened = await $.process.run(isMac ? ["open", "-t", where.file] : ["xdg-open", where.file]).catch(() => {
     return;
   });
-  return opened?.exitCode === 0 ? `Opened ${located.where.file}` : `Could not open an editor. The file is ${located.where.file}`;
+  return opened?.exitCode === 0 ? `Opened ${where.file}` : `Could not open an editor. The file is ${where.file}`;
 }
 async function pruneNotes($, isConfirmed) {
   const found = await inRepo($);
@@ -257,6 +292,10 @@ Run /notes prune --yes to delete them.`;
     });
     if (ran?.exitCode !== 0)
       kept.push(branchOf(f.slug));
+    else
+      await $.process.run(["rmdir", `${f.path}.lock`]).catch(() => {
+        return;
+      });
   }
   const deleted = dead.length - kept.length;
   return kept.length === 0 ? `Deleted ${deleted} notes file(s):
@@ -307,10 +346,10 @@ function register(on) {
     const { section: name, text, replace } = e;
     const section = sectionOf(name);
     if (!section)
-      return failure(`Unknown section "${name}". Use one of: ${SECTIONS.map((s) => s.key).join(", ")}.`);
+      return fail(`Unknown section "${name}". Use one of: ${SECTIONS.map((s) => s.key).join(", ")}.`);
     const recorded = await record($, section, text, replace === true);
     if ("reason" in recorded)
-      return failure(recorded.reason);
+      return fail(recorded.reason);
     return { result: `Noted under "${section.heading}" for ${recorded.where.branch}.` };
   });
   on("tool.call", { tool: "Bash" }, async ($, e, next) => {

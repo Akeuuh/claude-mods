@@ -64,7 +64,7 @@ Each Jev decision shows as a greyed line in the transcript, invisible to the mod
 
 | Mod | What it does |
 |---|---|
-| `branch-notes` | One markdown file of notes per git branch (goal, decisions, constraints, state) in `~/.claude/branch-notes/<repo>/<branch>.md` (`/` written `%2F`), shared by every worktree of the repo. The notes ride in the system prompt, so they survive a compaction; the model fills them with the `note_add` tool; a `git checkout`/`switch` in `Bash` reloads the branch. No notes on `main`, `master`, `develop` |
+| `branch-notes` | One markdown file of notes per git branch (goal, decisions, constraints, state) in `~/.claude/branch-notes/<repo>-<hash>/<branch>.md` (`/` written `%2F`), shared by every worktree of the repo. The notes ride in the system prompt, so they survive a compaction; the model fills them with the `note_add` tool; a `git checkout`/`switch` in `Bash` reloads the branch. No notes on `main`, `master`, `develop` |
 
 `/notes` shows the notes of the branch, `/notes all` lists those of the repo, `/notes pane` opens a live pane, `/notes add <section> <text>` appends (`objectif`, `decisions`, `contraintes`, `etat`), `/notes edit` opens the file, `/notes prune` lists the notes of branches that no longer exist and `/notes prune --yes` deletes them.
 

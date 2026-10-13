@@ -2,6 +2,12 @@
 
 All mods share one version, tagged `vX.Y.Z` on `main`. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- `branch-notes`: per-branch notes kept in `~/.claude/branch-notes/<repo>/`, riding in the system prompt so they survive a compaction, with a `note_add` tool, a reload on a `git checkout` in `Bash`, and `/notes` to show, list, open a pane, add, edit or prune them.
+
 ## [0.2.0] - 2026-10-09
 
 ### Added

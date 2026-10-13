@@ -98,6 +98,6 @@ Chaque décision Jev s'affiche en ligne grisée dans le transcript, invisible po
 
 | Mod | Rôle |
 |---|---|
-| `branch-notes` | Un fichier markdown de notes par branche git (objectif, décisions, contraintes, état) dans `~/.claude/branch-notes/<repo>/<branche>.md` (`/` écrit `%2F`), partagé par tous les worktrees du repo. Les notes voyagent dans le system prompt, donc survivent à un compactage ; le modèle les remplit avec l'outil `note_add` ; un `git checkout`/`switch` dans `Bash` recharge la branche. Pas de notes sur `main`, `master`, `develop` |
+| `branch-notes` | Un fichier markdown de notes par branche git (objectif, décisions, contraintes, état) dans `~/.claude/branch-notes/<repo>-<hash>/<branche>.md` (`/` écrit `%2F`), partagé par tous les worktrees du repo. Les notes voyagent dans le system prompt, donc survivent à un compactage ; le modèle les remplit avec l'outil `note_add` ; un `git checkout`/`switch` dans `Bash` recharge la branche. Pas de notes sur `main`, `master`, `develop` |
 
 `/notes` affiche les notes de la branche, `/notes all` liste celles du repo, `/notes pane` ouvre un panneau live, `/notes add <section> <texte>` ajoute une entrée (`objectif`, `decisions`, `contraintes`, `etat`), `/notes edit` ouvre le fichier, `/notes prune` liste les notes de branches disparues et `/notes prune --yes` les supprime.

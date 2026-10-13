@@ -1,3 +1,8 @@
+/**
+ * The notes file is Markdown: a preamble, then one `## heading` block per section. Everything here
+ * is pure — parsing, editing and printing a notes document, naming a repo and a branch on disk — so
+ * the hooks keep only the engine calls.
+ */
 export const SECTIONS = [
   { key: "objectif", heading: "Objectif", aliases: ["objectif", "objective", "goal"] },
   { key: "decisions", heading: "Décisions", aliases: ["decisions", "décisions", "decision", "décision"] },
@@ -18,10 +23,18 @@ export const sectionOf = (name: string): Section | undefined => {
   return SECTIONS.find((s) => s.aliases.some((alias) => alias === wanted));
 };
 
+const fnv1a = (text: string) => {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 0x01000193);
+  return (hash >>> 0).toString(16).padStart(8, "0");
+};
+
 export const repoOf = (commonDir: string) => {
-  const parts = commonDir.trim().split("/");
+  const path = commonDir.trim().replace(/\/+$/, "");
+  const parts = path.split("/");
   const last = parts.pop() ?? "";
-  return last === ".git" ? (parts.pop() ?? "") : last.replace(/\.git$/, "");
+  const name = last === ".git" ? (parts.pop() ?? "") : last.replace(/\.git$/, "");
+  return { name, key: `${name}-${fnv1a(path)}` };
 };
 
 export const template = (repo: string, branch: string, date: string) =>
@@ -85,8 +98,10 @@ export const forPrompt = (text: string) =>
     .map((b) => `## ${b.heading}\n${clipLines(b.body).join("\n")}`)
     .join("\n\n");
 
-export const firstEntry = (text: string, key: Section["key"]) =>
-  (bodyOf(text, SECTIONS.find((s) => s.key === key) as Section)[0] ?? "").replace(/^-\s*/, "");
+export const firstEntry = (text: string, key: Section["key"]) => {
+  const section = SECTIONS.find((s) => s.key === key);
+  return section === undefined ? "" : (bodyOf(text, section)[0] ?? "").replace(/^-\s*/, "");
+};
 
 export const branchSlugsOf = (refs: string) =>
   new Set(
