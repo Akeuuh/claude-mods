@@ -103,6 +103,18 @@ var USAGE = [
   "/notes prune [--yes]            list, or with --yes delete, the notes of branches that no longer exist"
 ].join(`
 `);
+var MARK = "◈";
+var LOOK = {
+  objectif: { icon: "◎", color: "claude" },
+  decisions: { icon: "◆", color: "success" },
+  contraintes: { icon: "▲", color: "warning" },
+  etat: { icon: "▸", color: "suggestion" }
+};
+var PLAIN = { icon: "·", color: "text" };
+var lookOf = (heading) => {
+  const key = SECTIONS.find((s) => s.heading === heading)?.key;
+  return key === undefined ? PLAIN : LOOK[key];
+};
 var view = atom({ plugin: "branch-notes", key: "view" }, null);
 var fail = (message) => ({ deny: message });
 async function git($, ...argv) {
@@ -379,27 +391,35 @@ function register(on) {
     return { text: USAGE };
   });
   on("ui.render", { component: "Pane", requestId: PANE }, async ($, e) => {
-    const { Box, Text } = $.ui.resolve(e);
+    const { Box, Markdown, Text } = $.ui.resolve(e);
     const current = await read($, view);
     if (!current)
       return /* @__PURE__ */ h(Text, {
         dimColor: true
       }, NOT_TRACKED);
-    const room = Math.max(1, (e.viewport?.rows ?? 24) - 4);
-    const rows = filledSections(current.text).flatMap((s) => [
-      { text: s.heading, isHeading: true },
-      ...s.body.map((text) => ({ text, isHeading: false }))
-    ]);
+    const sections = filledSections(current.text);
     return /* @__PURE__ */ h(Box, {
-      flexDirection: "column"
+      flexDirection: "column",
+      gap: 1
     }, /* @__PURE__ */ h(Text, {
+      color: "claude",
+      bold: true,
+      wrap: "truncate-middle"
+    }, `${MARK} ${current.branch}`), sections.length === 0 && /* @__PURE__ */ h(Text, {
       dimColor: true
-    }, current.branch), rows.length === 0 && /* @__PURE__ */ h(Text, {
-      dimColor: true
-    }, "No notes yet."), rows.slice(0, room).map((row, i) => /* @__PURE__ */ h(Text, {
-      key: `${i}`,
-      bold: row.isHeading
-    }, row.text)));
+    }, "Nothing noted yet."), sections.map((section) => {
+      const look = lookOf(section.heading);
+      return /* @__PURE__ */ h(Box, {
+        key: section.heading,
+        flexDirection: "column"
+      }, /* @__PURE__ */ h(Text, {
+        color: look.color,
+        bold: true
+      }, `${look.icon} ${section.heading}`), /* @__PURE__ */ h(Markdown, {
+        text: section.body.join(`
+`)
+      }));
+    }));
   });
 }
 export {

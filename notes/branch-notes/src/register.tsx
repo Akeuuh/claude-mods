@@ -5,7 +5,7 @@
  *   prompt.compose   the notes ride as a system prompt section, so they survive a compaction
  *   tool.call        note_add writes a section; a git checkout/switch in Bash reloads the branch
  *   command.run      /notes: show, all, pane, add, edit, prune
- *   ui.render        the notes pane
+ *   ui.render        the notes pane, each section headed then drawn as markdown
  */
 import { atom, read, update } from "claude-code";
 import type { EngineInterface, On, ToolCallResult } from "claude-code";
@@ -27,6 +27,20 @@ const USAGE = [
   "/notes edit                     open the notes file in the default editor",
   "/notes prune [--yes]            list, or with --yes delete, the notes of branches that no longer exist",
 ].join("\n");
+
+const MARK = "\u25c8";
+const LOOK: Record<Section["key"], { icon: string; color: string }> = {
+  objectif: { icon: "\u25ce", color: "claude" },
+  decisions: { icon: "\u25c6", color: "success" },
+  contraintes: { icon: "\u25b2", color: "warning" },
+  etat: { icon: "\u25b8", color: "suggestion" },
+};
+const PLAIN = { icon: "\u00b7", color: "text" };
+
+const lookOf = (heading: string) => {
+  const key = SECTIONS.find((s) => s.heading === heading)?.key;
+  return key === undefined ? PLAIN : LOOK[key];
+};
 
 const view = atom({ plugin: "branch-notes", key: "view" } as const, null);
 
@@ -281,24 +295,28 @@ export function register(on: On) {
   });
 
   on("ui.render", { component: "Pane", requestId: PANE }, async ($, e) => {
-    const { Box, Text } = $.ui.resolve(e);
+    const { Box, Markdown, Text } = $.ui.resolve(e);
     const current = await read($, view);
     if (!current) return <Text dimColor>{NOT_TRACKED}</Text>;
-    const room = Math.max(1, (e.viewport?.rows ?? 24) - 4);
-    const rows = filledSections(current.text).flatMap((s) => [
-      { text: s.heading, isHeading: true },
-      ...s.body.map((text) => ({ text, isHeading: false })),
-    ]);
+    const sections = filledSections(current.text);
 
     return (
-      <Box flexDirection="column">
-        <Text dimColor>{current.branch}</Text>
-        {rows.length === 0 && <Text dimColor>No notes yet.</Text>}
-        {rows.slice(0, room).map((row, i) => (
-          <Text key={`${i}`} bold={row.isHeading}>
-            {row.text}
-          </Text>
-        ))}
+      <Box flexDirection="column" gap={1}>
+        <Text color="claude" bold wrap="truncate-middle">
+          {`${MARK} ${current.branch}`}
+        </Text>
+        {sections.length === 0 && <Text dimColor>Nothing noted yet.</Text>}
+        {sections.map((section) => {
+          const look = lookOf(section.heading);
+          return (
+            <Box key={section.heading} flexDirection="column">
+              <Text color={look.color} bold>
+                {`${look.icon} ${section.heading}`}
+              </Text>
+              <Markdown text={section.body.join("\n")} />
+            </Box>
+          );
+        })}
       </Box>
     );
   });
